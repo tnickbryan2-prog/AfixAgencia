@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#74119E" />
   <title>Admin · Vouchers Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: datos de prueba guardados en este navegador. Cualquier contraseña funciona.</div>
@@ -22,6 +22,7 @@
       <nav class="tabs hidden" id="tabs">
         <button class="tab active" data-tab="registros">Registros</button>
         <button class="tab" data-tab="indicadores">Indicadores</button>
+        <button class="tab" data-tab="stock">Stock premios</button>
       </nav>
       <button id="logoutBtn" class="btn btn-light hidden">Cerrar sesión</button>
     </div>
@@ -108,6 +109,7 @@
     </div>
    </section>
    <section id="tab-indicadores" class="hidden"></section>
+   <section id="tab-stock" class="hidden"></section>
   </main>
 
   <div id="lightbox" class="lightbox hidden">
@@ -116,9 +118,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=7"></script>
-  <script src="api.js?v=7"></script>
-  <script src="metrics.js?v=7"></script>
+  <script src="config.js?v=8"></script>
+  <script src="api.js?v=8"></script>
+  <script src="metrics.js?v=8"></script>
+  <script src="stock.js?v=9"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -183,6 +186,7 @@
           renderKpis();
           applyFilters();
           Metrics.setRows(rows);
+          Stock.setVouchers(rows);
           if (!API.isDemo && rows.length === 0) {
             // Si el usuario no es admin, Supabase devuelve 0 filas (no error)
             $("listError").innerHTML = "No hay registros todavía. Si sabes que sí hay, verifica que tu correo esté en la tabla <b>admin_emails</b>.";
@@ -334,11 +338,14 @@
       });
 
       Metrics.mount($("tab-indicadores"));
+      Stock.mount($("tab-stock"));
       document.querySelectorAll("#tabs .tab").forEach((b) => b.addEventListener("click", () => {
         document.querySelectorAll("#tabs .tab").forEach((x) => x.classList.toggle("active", x === b));
         $("tab-registros").classList.toggle("hidden", b.dataset.tab !== "registros");
         $("tab-indicadores").classList.toggle("hidden", b.dataset.tab !== "indicadores");
+        $("tab-stock").classList.toggle("hidden", b.dataset.tab !== "stock");
         if (b.dataset.tab === "indicadores") Metrics.render();
+        if (b.dataset.tab === "stock") Stock.show();
         try { sessionStorage.setItem("admin_tab", b.dataset.tab); } catch {}
       }));
       try { const t = sessionStorage.getItem("admin_tab"); if (t) document.querySelector(`#tabs .tab[data-tab="${t}"]`)?.click(); } catch {}

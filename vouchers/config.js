@@ -17,6 +17,9 @@ window.APP_CONFIG = {
     "Adhesivo Azul 2 oz",
   ],
 
+  // Alerta de stock bajo cuando a una promotora le quedan esta cantidad o menos
+  STOCK_MINIMO: 5,
+
   // Tiendas y promotora asignada. Al elegir la tienda, el formulario
   // muestra solo las promotoras de esa tienda.
   // Si una tienda tiene más de una promotora: promotoras: ["Ana", "Luz"]

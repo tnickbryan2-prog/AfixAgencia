@@ -172,6 +172,37 @@
       if (error) throw new Error(error.message);
     },
 
+    // ---------- Stock de premios entregado a promotoras ----------
+    async listStock() {
+      if (CFG.DEMO) { try { return JSON.parse(localStorage.getItem("stock_demo") || "[]"); } catch { return []; } }
+      const { data, error } = await client().from("stock_movimientos").select("*")
+        .order("fecha", { ascending: false }).order("created_at", { ascending: false }).limit(5000);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    async addStock(items) {
+      if (CFG.DEMO) {
+        const cur = await API.listStock();
+        const now = new Date().toISOString();
+        items.forEach((it) => cur.unshift({ id: uuid(), created_at: now, registrado_por: "demo", ...it }));
+        localStorage.setItem("stock_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("stock_movimientos").insert(items);
+      if (error) throw new Error(error.message);
+    },
+
+    async deleteStock(id) {
+      if (CFG.DEMO) {
+        const cur = (await API.listStock()).filter((r) => r.id !== id);
+        localStorage.setItem("stock_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("stock_movimientos").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+
     async deleteVoucher(row) {
       if (CFG.DEMO) { demo.write(demo.read().filter((r) => r.id !== row.id)); return; }
       const c = client();
