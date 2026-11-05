@@ -312,3 +312,11 @@ tr:hover td { background: #fcfaFD; }
   .tabs .tab { flex: 1; }
   .ind-toolbar .field, .ind-toolbar .field input, .ind-toolbar .field select { width: 100%; }
 }
+
+/* Premios */
+.prize-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.prize { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.prize .lbl { font-size: 13px; font-weight: 700; }
+.prize .val { font-size: 26px; font-weight: 800; color: var(--purple); margin: 2px 0 8px; }
+.prize .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.total-row td { background: #fbfafc; border-top: 2px solid var(--line); }

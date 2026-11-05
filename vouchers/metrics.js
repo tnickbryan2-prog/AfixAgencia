@@ -124,6 +124,19 @@
       };
     }).sort((a, b) => b.mes - a.mes);
 
+    // Premios entregados
+    const premioNames = [...new Set([...(CFG.PREMIOS || []), ...inMonth.map((r) => r.premio).filter(Boolean)])];
+    const premios = premioNames.map((pz) => ({
+      premio: pz,
+      mes: inMonth.filter((r) => r.premio === pz).length,
+      dia: dayRows.filter((r) => r.premio === pz).length,
+    }));
+    const sinPremio = inMonth.filter((r) => !r.premio).length;
+    const premioMatrix = tiendas.map((t) => ({
+      tienda: t.tienda,
+      vals: premioNames.map((pz) => inMonth.filter((r) => r.tienda === t.tienda && r.premio === pz).length),
+    }));
+
     // Horas y días de la semana (mes)
     const hours = {};
     for (let h = 7; h <= 22; h++) hours[h] = 0;
@@ -156,7 +169,7 @@
     const nPromos = promos.length || 1;
     return {
       today, days, actDays, elapsedAct, remainingAfterToday, isCurrent, total, prevSame, avg, proj, unique, dupPhones,
-      perDay, best, dayRows, dayHours, promos, tiendas, hours, dowTot, dowCnt, alerts, meta,
+      perDay, best, dayRows, dayHours, promos, tiendas, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
       metaEquipo: meta * nPromos,
       metaDiariaEquipo: meta && actDays.length ? (meta * nPromos) / actDays.length : 0,
       coberturaHoy: tiendas.filter((t) => t.hoy > 0 && TIENDAS.some((x) => x.tienda === t.tienda)).length,
@@ -313,6 +326,23 @@
             <tr><td><strong>${esc(t.tienda)}</strong></td><td>${esc(t.promotora)}</td><td class="num">${t.hoy}</td><td class="num"><b>${t.mes}</b></td>
               <td><div class="prog"><div style="width:${t.share * 100}%"></div></div><div class="small muted">${pct(t.share)}</div></td>
               <td class="num">${t.sinReg ? `<span class="pill ${t.sinReg >= 3 ? "bad" : "warn"}">${t.sinReg}</span>` : '<span class="pill ok">0</span>'}</td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3>Premios entregados · ${esc(ymLabel(state.ym))}</h3>
+          <span class="muted">${m.sinPremio ? `${m.sinPremio} registro${m.sinPremio > 1 ? "s" : ""} anterior${m.sinPremio > 1 ? "es" : ""} sin premio` : "Útil para controlar el stock por tienda"}</span></div>
+        <div class="prize-cards">${m.premios.map((pz) => {
+          const tot = m.premios.reduce((a, b) => a + b.mes, 0) || 1;
+          return `<div class="prize"><div class="lbl">${esc(pz.premio)}</div><div class="val">${fmtN(pz.mes)}</div>
+            <div class="prog"><div style="width:${(pz.mes / tot) * 100}%"></div></div>
+            <div class="sub">${pct(pz.mes / tot)} del mes · ${pz.dia} el ${esc(dLabel(state.day))}</div></div>`;
+        }).join("")}</div>
+        <div class="table-wrap" style="margin-top:14px"><table class="ind-table">
+          <thead><tr><th>Tienda</th>${m.premioNames.map((pz) => `<th class="num">${esc(pz)}</th>`).join("")}<th class="num">Total</th></tr></thead>
+          <tbody>${m.premioMatrix.map((t) => `<tr><td><strong>${esc(t.tienda)}</strong></td>${t.vals.map((v) => `<td class="num">${v || '<span class="muted">0</span>'}</td>`).join("")}<td class="num"><b>${t.vals.reduce((a, b) => a + b, 0)}</b></td></tr>`).join("")}
+            <tr class="total-row"><td><strong>Total</strong></td>${m.premios.map((pz) => `<td class="num"><b>${pz.mes}</b></td>`).join("")}<td class="num"><b>${m.premios.reduce((a, b) => a + b.mes, 0)}</b></td></tr>
+          </tbody>
         </table></div>
       </div>
 
