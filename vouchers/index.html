@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#74119E" />
   <title>Registro de Vouchers · Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -78,6 +78,14 @@
         </div>
 
         <div class="divider"></div>
+        <p class="section-label">4 · Premio entregado</p>
+        <div class="field" id="f-premio">
+          <label for="premio">¿Qué se le entregó al cliente?</label>
+          <select id="premio"><option value="">Selecciona el premio…</option></select>
+          <div class="err">Selecciona el premio entregado.</div>
+        </div>
+
+        <div class="divider"></div>
         <div class="field consent" id="f-acepta">
           <label class="check-row" for="acepta">
             <input id="acepta" type="checkbox" />
@@ -107,8 +115,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=5"></script>
-  <script src="api.js?v=5"></script>
+  <script src="config.js?v=6"></script>
+  <script src="api.js?v=6"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -144,6 +152,10 @@
         else if (preferred && list.includes(preferred)) promoSel.value = preferred;
         $("f-promotora").classList.remove("invalid");
       }
+
+      $("premio").innerHTML = '<option value="">Selecciona el premio…</option>' +
+        (CFG.PREMIOS || []).map((p) => `<option value="${escH(p)}">${escH(p)}</option>`).join("");
+      $("premio").addEventListener("change", () => $("f-premio").classList.remove("invalid"));
 
       if (useSelect) {
         const sel = $("tienda");
@@ -196,6 +208,7 @@
           telefono: $("telefono").value.replace(/\D/g, ""),
           tienda: clean(useSelect ? $("tienda").value : $("tiendaText").value),
           promotora: title($("promotora").value),
+          premio: $("premio").value,
         };
         const ok = {
           foto: !!photoFile,
@@ -204,6 +217,7 @@
           telefono: /^9\d{8}$/.test(vals.telefono),
           tienda: vals.tienda.length >= 2,
           promotora: vals.promotora.length >= 2,
+          premio: vals.premio.length >= 2,
           acepta: $("acepta").checked,
         };
         vals.acepta_datos = ok.acepta;
@@ -247,7 +261,7 @@
           const key = "v_count_" + today;
           const n = (parseInt(store.get(key) || "0", 10) || 0) + 1;
           store.set(key, String(n));
-          $("okText").textContent = `${vals.nombre} ${vals.apellido} · ${vals.tienda}`;
+          $("okText").textContent = `${vals.nombre} ${vals.apellido} · ${vals.premio} · ${vals.tienda}`;
           $("counter").textContent = `Hoy llevas ${n} registro${n === 1 ? "" : "s"}`;
           $("formView").classList.add("hidden");
           $("okView").classList.remove("hidden");
@@ -266,6 +280,7 @@
         $("apellido").value = "";
         $("telefono").value = "";
         $("acepta").checked = false;
+        $("premio").value = "";
         $("photoPreview").classList.add("hidden");
         $("photoDrop").classList.remove("hidden");
         $("okView").classList.add("hidden");

@@ -9,6 +9,14 @@ window.APP_CONFIG = {
   // Nombre que se muestra en la cabecera
   CAMPANA: "Activación Afix PVC · Sodimac",
 
+  // Premios que se entregan al cliente (desplegable del formulario)
+  PREMIOS: [
+    "Lapicero",
+    "Adhesivo Gris 2 oz",
+    "Adhesivo Dorado 2 oz",
+    "Adhesivo Azul 2 oz",
+  ],
+
   // Tiendas y promotora asignada. Al elegir la tienda, el formulario
   // muestra solo las promotoras de esa tienda.
   // Si una tienda tiene más de una promotora: promotoras: ["Ana", "Luz"]
