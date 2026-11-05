@@ -72,9 +72,9 @@
           <div class="err">Selecciona la tienda.</div>
         </div>
         <div class="field" id="f-promotora">
-          <label for="promotora">Tu nombre (promotora)</label>
-          <input id="promotora" maxlength="80" autocapitalize="words" />
-          <div class="err">Ingresa tu nombre.</div>
+          <label for="promotora">Promotora</label>
+          <select id="promotora" disabled><option value="">Primero elige la tienda</option></select>
+          <div class="err">Selecciona tu nombre.</div>
         </div>
 
         <div class="divider"></div>
@@ -121,20 +121,48 @@
       if (API.isDemo) $("demoBanner").classList.remove("hidden");
       $("campana").textContent = CFG.CAMPANA || "";
 
-      // Tiendas
-      const useSelect = Array.isArray(CFG.TIENDAS) && CFG.TIENDAS.length > 0;
+      // Tiendas → promotoras asignadas
+      const escH = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      const TIENDAS = (CFG.TIENDAS || []).map((t) =>
+        typeof t === "string" ? { tienda: t, promotoras: [] } : { tienda: t.tienda, promotoras: t.promotoras || [] }
+      );
+      const useSelect = TIENDAS.length > 0;
+      const promoSel = $("promotora");
+
+      function fillPromotoras(tiendaName, preferred) {
+        const t = TIENDAS.find((x) => x.tienda === tiendaName);
+        const list = t ? t.promotoras : [];
+        if (!t) {
+          promoSel.innerHTML = '<option value="">Primero elige la tienda</option>';
+          promoSel.disabled = true;
+          return;
+        }
+        promoSel.disabled = false;
+        promoSel.innerHTML = (list.length === 1 ? "" : '<option value="">Selecciona tu nombre…</option>') +
+          list.map((p) => `<option value="${escH(p)}">${escH(p)}</option>`).join("");
+        if (list.length === 1) promoSel.value = list[0];
+        else if (preferred && list.includes(preferred)) promoSel.value = preferred;
+        $("f-promotora").classList.remove("invalid");
+      }
+
       if (useSelect) {
         const sel = $("tienda");
         sel.classList.remove("hidden");
-        sel.innerHTML = '<option value="">Selecciona…</option>' +
-          CFG.TIENDAS.map((t) => `<option>${t.replace(/</g, "&lt;")}</option>`).join("");
-        sel.value = store.get("v_tienda") || "";
+        sel.innerHTML = '<option value="">Selecciona tu tienda…</option>' +
+          TIENDAS.map((t) => `<option value="${escH(t.tienda)}">${escH(t.tienda)}</option>`).join("");
+        const saved = store.get("v_tienda") || "";
+        if (TIENDAS.some((t) => t.tienda === saved)) sel.value = saved;
+        fillPromotoras(sel.value, store.get("v_promotora"));
+        sel.addEventListener("change", () => fillPromotoras(sel.value, null));
       } else {
         $("tiendaText").classList.remove("hidden");
         $("tiendaText").value = store.get("v_tienda") || "";
         $("f-tienda").querySelector("label").setAttribute("for", "tiendaText");
+        // Sin lista configurada: promotora escrita a mano
+        const inp = document.createElement("input");
+        inp.id = "promotora"; inp.maxLength = 80; inp.value = store.get("v_promotora") || "";
+        promoSel.replaceWith(inp);
       }
-      $("promotora").value = store.get("v_promotora") || "";
 
       // Foto
       let photoFile = null;

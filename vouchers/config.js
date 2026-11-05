@@ -9,11 +9,21 @@ window.APP_CONFIG = {
   // Nombre que se muestra en la cabecera
   CAMPANA: "Activación Afix PVC · Sodimac",
 
-  // Las 15 tiendas del proyecto. Si dejas la lista vacía [],
-  // la promotora escribirá la tienda a mano.
+  // Tiendas y promotora asignada. Al elegir la tienda, el formulario
+  // muestra solo las promotoras de esa tienda.
+  // Si una tienda tiene más de una promotora: promotoras: ["Ana", "Luz"]
   TIENDAS: [
-    // "Sodimac San Miguel",
-    // "Sodimac Atocongo",
+    { tienda: "Sodimac Angamos Primavera (Surquillo)",        promotoras: ["Andrea Apaza"] },
+    { tienda: "Sodimac Surquillo (Surquillo)",                promotoras: ["Elizabeth Pizarro"] },
+    { tienda: "Sodimac Chacarilla (Santiago de Surco)",       promotoras: ["Elizabeth Pizarro"] },
+    { tienda: "Sodimac Atocongo (SJM Open Plaza)",            promotoras: ["Sheyla Rojas"] },
+    { tienda: "Sodimac Villa El Salvador",                    promotoras: ["Sheyla Rojas"] },
+    { tienda: "Sodimac Ate (La Molina)",                      promotoras: ["Sheyla Rojas"] },
+    { tienda: "Sodimac Javier Prado (La Victoria)",           promotoras: ["Rosa Rios"] },
+    { tienda: "Sodimac San Miguel",                           promotoras: ["Rosa Rios"] },
+    { tienda: "Sodimac Canta Callao (Open Plaza)",            promotoras: ["Cecilia Chipana"] },
+    { tienda: "Sodimac Cono Norte (Mega Plaza Independencia)", promotoras: ["Cecilia Chipana"] },
+    { tienda: "Sodimac Naranjal (Los Olivos)",                promotoras: ["Cecilia Chipana"] },
   ],
 };
 
