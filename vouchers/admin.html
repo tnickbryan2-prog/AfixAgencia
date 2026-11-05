@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#74119E" />
   <title>Admin · Vouchers Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: datos de prueba guardados en este navegador. Cualquier contraseña funciona.</div>
@@ -19,6 +19,10 @@
         <p id="campana">Activación Afix PVC · Sodimac</p>
       </div>
       <div class="spacer"></div>
+      <nav class="tabs hidden" id="tabs">
+        <button class="tab active" data-tab="registros">Registros</button>
+        <button class="tab" data-tab="indicadores">Indicadores</button>
+      </nav>
       <button id="logoutBtn" class="btn btn-light hidden">Cerrar sesión</button>
     </div>
   </header>
@@ -43,6 +47,7 @@
 
   <!-- Dashboard -->
   <main id="appView" class="admin-main hidden">
+   <section id="tab-registros">
     <div class="kpis">
       <div class="card kpi accent"><div class="lbl">Vouchers totales</div><div class="val" id="kTotal">0</div><div class="sub" id="kTotalSub">&nbsp;</div></div>
       <div class="card kpi"><div class="lbl">Hoy</div><div class="val" id="kHoy">0</div><div class="sub" id="kHoySub">&nbsp;</div></div>
@@ -101,6 +106,8 @@
         </div>
       </div>
     </div>
+   </section>
+   <section id="tab-indicadores" class="hidden"></section>
   </main>
 
   <div id="lightbox" class="lightbox hidden">
@@ -109,8 +116,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=4"></script>
-  <script src="api.js?v=4"></script>
+  <script src="config.js?v=5"></script>
+  <script src="api.js?v=5"></script>
+  <script src="metrics.js?v=5"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -137,11 +145,13 @@
         $("loginView").classList.remove("hidden");
         $("appView").classList.add("hidden");
         $("logoutBtn").classList.add("hidden");
+        $("tabs").classList.add("hidden");
       }
       function showApp() {
         $("loginView").classList.add("hidden");
         $("appView").classList.remove("hidden");
         $("logoutBtn").classList.remove("hidden");
+        $("tabs").classList.remove("hidden");
         load();
       }
       $("loginForm").addEventListener("submit", async (e) => {
@@ -172,6 +182,7 @@
           fillSelect("fPromo", rows.map((r) => r.promotora));
           renderKpis();
           applyFilters();
+          Metrics.setRows(rows);
           if (!API.isDemo && rows.length === 0) {
             // Si el usuario no es admin, Supabase devuelve 0 filas (no error)
             $("listError").innerHTML = "No hay registros todavía. Si sabes que sí hay, verifica que tu correo esté en la tabla <b>admin_emails</b>.";
@@ -320,6 +331,16 @@
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       });
+
+      Metrics.mount($("tab-indicadores"));
+      document.querySelectorAll("#tabs .tab").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll("#tabs .tab").forEach((x) => x.classList.toggle("active", x === b));
+        $("tab-registros").classList.toggle("hidden", b.dataset.tab !== "registros");
+        $("tab-indicadores").classList.toggle("hidden", b.dataset.tab !== "indicadores");
+        if (b.dataset.tab === "indicadores") Metrics.render();
+        try { sessionStorage.setItem("admin_tab", b.dataset.tab); } catch {}
+      }));
+      try { const t = sessionStorage.getItem("admin_tab"); if (t) document.querySelector(`#tabs .tab[data-tab="${t}"]`)?.click(); } catch {}
 
       if (window.matchMedia("(max-width: 860px)").matches) $("chartsGrid").style.gridTemplateColumns = "1fr";
       boot();

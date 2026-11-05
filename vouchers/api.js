@@ -154,6 +154,24 @@
       return out;
     },
 
+    // Configuración del panel (meta mensual por promotora y días de activación)
+    async getPanelConfig() {
+      const def = { meta_promotora_mes: 0, dias_activacion: [1, 2, 3, 4, 5, 6, 0] };
+      if (CFG.DEMO) {
+        try { return { ...def, ...JSON.parse(localStorage.getItem("panel_cfg_demo") || "{}") }; } catch { return def; }
+      }
+      const { data, error } = await client().from("panel_config").select("*").eq("id", 1).maybeSingle();
+      if (error || !data) return def;
+      return data;
+    },
+
+    async savePanelConfig(cfg) {
+      const row = { meta_promotora_mes: cfg.meta_promotora_mes, dias_activacion: cfg.dias_activacion, updated_at: new Date().toISOString() };
+      if (CFG.DEMO) { localStorage.setItem("panel_cfg_demo", JSON.stringify(row)); return; }
+      const { error } = await client().from("panel_config").update(row).eq("id", 1);
+      if (error) throw new Error(error.message);
+    },
+
     async deleteVoucher(row) {
       if (CFG.DEMO) { demo.write(demo.read().filter((r) => r.id !== row.id)); return; }
       const c = client();
