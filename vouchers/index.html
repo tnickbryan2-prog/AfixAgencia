@@ -77,6 +77,18 @@
           <div class="err">Ingresa tu nombre.</div>
         </div>
 
+        <div class="divider"></div>
+        <div class="field consent" id="f-acepta">
+          <label class="check-row" for="acepta">
+            <input id="acepta" type="checkbox" />
+            <span>
+              <strong>Acepto el uso de mis datos</strong>
+              <small>El cliente autoriza a Artecola Perú a usar su nombre y teléfono para fines de esta promoción.</small>
+            </span>
+          </label>
+          <div class="err">El cliente debe aceptar el uso de sus datos.</div>
+        </div>
+
         <button id="submitBtn" class="btn btn-primary btn-block" type="submit">Registrar voucher</button>
         <p class="footer-note">Tienda y promotora se recuerdan en este celular.</p>
       </form>
@@ -164,7 +176,9 @@
           telefono: /^9\d{8}$/.test(vals.telefono),
           tienda: vals.tienda.length >= 2,
           promotora: vals.promotora.length >= 2,
+          acepta: $("acepta").checked,
         };
+        vals.acepta_datos = ok.acepta;
         let first = null;
         Object.keys(ok).forEach((k) => {
           $("f-" + k).classList.toggle("invalid", !ok[k]);
@@ -177,6 +191,7 @@
       ["nombre", "apellido", "telefono", "promotora", "tienda", "tiendaText"].forEach((id) =>
         $(id).addEventListener("input", () => $(id).closest(".field").classList.remove("invalid"))
       );
+      $("acepta").addEventListener("change", () => $("f-acepta").classList.remove("invalid"));
 
       function showError(msg) {
         $("formError").textContent = msg;
@@ -222,6 +237,7 @@
         $("nombre").value = "";
         $("apellido").value = "";
         $("telefono").value = "";
+        $("acepta").checked = false;
         $("photoPreview").classList.add("hidden");
         $("photoDrop").classList.remove("hidden");
         $("okView").classList.add("hidden");

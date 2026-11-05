@@ -37,7 +37,8 @@ create table if not exists public.vouchers (
   apellido    text not null check (char_length(apellido) between 2 and 60),
   telefono    text not null check (telefono ~ '^9[0-9]{8}$'),
   foto_path   text not null check (char_length(foto_path) between 5 and 200),
-  dispositivo text
+  dispositivo text,
+  acepta_datos boolean not null default false
 );
 
 create index if not exists vouchers_created_idx  on public.vouchers (created_at desc);
@@ -51,7 +52,7 @@ drop policy if exists "promotoras insertan" on public.vouchers;
 create policy "promotoras insertan"
   on public.vouchers for insert
   to anon, authenticated
-  with check (true);
+  with check (acepta_datos = true);   -- exige el check de consentimiento
 
 -- Admin: puede leer y borrar
 drop policy if exists "admin lee" on public.vouchers;
