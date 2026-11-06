@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#74119E" />
+  <title>Política de privacidad · Promoción Afix Sodimac</title>
+  <link rel="stylesheet" href="styles.css?v=10" />
+  <style>
+    .policy { max-width: 760px; margin: -10px auto 40px; padding: 0 14px; }
+    .policy .card { padding: 22px 22px 26px; }
+    .policy h2 { font-size: 16px; color: var(--purple); margin: 22px 0 6px; }
+    .policy h2:first-of-type { margin-top: 4px; }
+    .policy p, .policy li { font-size: 14.5px; color: var(--ink); }
+    .policy ul { padding-left: 20px; margin: 6px 0; }
+    .policy li { margin-bottom: 4px; }
+    .policy .meta { font-size: 12.5px; color: var(--muted); margin-top: 22px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .policy .back { display: inline-block; margin: 22px 0 12px; color: var(--purple); font-weight: 700; text-decoration: none; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand-mark">A</div>
+      <div>
+        <h1>Política de privacidad</h1>
+        <p>Promoción Afix PVC en tiendas Sodimac</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="policy">
+    <a class="back" href="index.html">← Volver al registro</a>
+    <article class="card">
+      <h2>1. ¿Quién es responsable de tus datos?</h2>
+      <p>El titular del banco de datos y responsable del tratamiento es <b data-k="RESPONSABLE"></b><span data-opt="RUC">, RUC <span data-k="RUC"></span></span><span data-opt="DOMICILIO">, con domicilio en <span data-k="DOMICILIO"></span></span>.</p>
+
+      <h2>2. ¿Qué datos recopilamos?</h2>
+      <ul>
+        <li>Nombre y apellido.</li>
+        <li>Número de teléfono celular.</li>
+        <li>Fotografía del comprobante de compra.</li>
+        <li>Tienda, fecha y hora del registro, premio entregado y nombre de la promotora que te atendió.</li>
+      </ul>
+      <p>No te pedimos DNI ni datos bancarios. Si tu comprobante los muestra, la promotora debe cubrirlos antes de tomar la foto.</p>
+
+      <h2>3. ¿Para qué los usamos?</h2>
+      <ul>
+        <li>Registrar tu participación en la promoción y entregarte el premio.</li>
+        <li>Verificar la compra y evitar registros duplicados o fraudulentos.</li>
+        <li>Medir los resultados de la promoción con reportes internos. Estos reportes no incluyen tu nombre ni tu teléfono.</li>
+      </ul>
+      <p>Solo usaremos tus datos para enviarte promociones o información comercial de Afix y Artecola si lo autorizas marcando la casilla opcional del formulario. No marcarla no afecta tu participación.</p>
+
+      <h2>4. ¿Es obligatorio darlos?</h2>
+      <p>Sí, para participar. Sin estos datos no podemos registrar tu compra ni entregarte el premio. La autorización para recibir publicidad es opcional.</p>
+
+      <h2>5. ¿Con quién los compartimos?</h2>
+      <ul>
+        <li>La agencia que gestiona a las promotoras, solo para operar la promoción y bajo deber de confidencialidad.</li>
+        <li>El proveedor de almacenamiento en la nube, que guarda la información en servidores ubicados en <span data-k="UBICACION_SERVIDORES"></span>. Esto constituye un <b>flujo transfronterizo de datos personales</b>, que autorizas expresamente al aceptar.</li>
+      </ul>
+      <p>No vendemos ni cedemos tus datos a terceros para otros fines.</p>
+
+      <h2>6. ¿Cuánto tiempo los conservamos?</h2>
+      <p>Conservamos tus datos <span data-k="CONSERVACION"></span>. Después los eliminamos, salvo que una obligación legal exija conservarlos por más tiempo.</p>
+
+      <h2>7. ¿Cómo los protegemos?</h2>
+      <ul>
+        <li>La información viaja cifrada y se almacena cifrada.</li>
+        <li>Solo personal autorizado de Artecola puede consultarla, con usuario y contraseña. Las promotoras pueden registrar datos, pero no verlos después.</li>
+        <li>Las fotos de los comprobantes se guardan en un espacio privado.</li>
+      </ul>
+
+      <h2>8. Tus derechos</h2>
+      <p>Puedes pedir en cualquier momento <b>acceso</b>, <b>rectificación</b>, <b>cancelación</b> (eliminación) u <b>oposición</b> al uso de tus datos, y revocar tu autorización, escribiendo a <a data-k="CONTACTO" data-mail></a> con tu nombre y el teléfono que registraste. Responderemos dentro de los plazos de ley.</p>
+      <p>Si consideras que no atendimos tu solicitud, puedes presentar un reclamo ante la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos.</p>
+
+      <p class="meta">Marco legal: Ley N.º 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.º 016-2024-JUS).<span data-opt="REGISTRO_RNPDP"> Banco de datos inscrito en el Registro Nacional de Protección de Datos Personales con código <span data-k="REGISTRO_RNPDP"></span>.</span> Versión <span data-k="VERSION"></span>.</p>
+    </article>
+  </main>
+
+  <script src="config.js?v=10"></script>
+  <script>
+    (function () {
+      const P = (window.APP_CONFIG && window.APP_CONFIG.PRIVACIDAD) || {};
+      document.querySelectorAll("[data-opt]").forEach((el) => { if (!P[el.dataset.opt]) el.remove(); });
+      document.querySelectorAll("[data-k]").forEach((el) => {
+        const v = P[el.dataset.k] || "";
+        el.textContent = v;
+        if (el.hasAttribute("data-mail") && v) el.href = "mailto:" + v;
+      });
+    })();
+  </script>
+</body>
+</html>

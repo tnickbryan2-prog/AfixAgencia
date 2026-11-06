@@ -9,6 +9,18 @@ window.APP_CONFIG = {
   // Nombre que se muestra en la cabecera
   CAMPANA: "Activación Afix PVC · Sodimac",
 
+  // Datos de la política de privacidad (Ley 29733). Los campos vacíos no se muestran.
+  PRIVACIDAD: {
+    VERSION: "v2-2026-11",                       // cambia si modificas el texto del consentimiento
+    RESPONSABLE: "Artecola Perú",                // razón social del titular del banco de datos
+    RUC: "",                                     // completar
+    DOMICILIO: "",                               // completar
+    CONTACTO: "nick.torres@artecola.com.pe",    // correo para pedir acceso, rectificación o eliminación
+    CONSERVACION: "hasta 6 meses después de finalizada la promoción",
+    UBICACION_SERVIDORES: "Brasil (São Paulo), a través del proveedor Supabase",
+    REGISTRO_RNPDP: "",                          // código de inscripción del banco de datos, cuando lo tengan
+  },
+
   // Premios que se entregan al cliente (desplegable del formulario)
   PREMIOS: [
     "Lapicero",
