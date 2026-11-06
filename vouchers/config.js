@@ -16,7 +16,7 @@ window.APP_CONFIG = {
     RUC: "",                                     // completar
     DOMICILIO: "",                               // completar
     CONTACTO: "nick.torres@artecola.com.pe",    // correo para pedir acceso, rectificación o eliminación
-    CONSERVACION: "hasta 6 meses después de finalizada la promoción",
+    CONSERVACION: "solo mientras sean necesarios para gestionar esta promoción",
     UBICACION_SERVIDORES: "Brasil (São Paulo), a través del proveedor Supabase",
     REGISTRO_RNPDP: "",                          // código de inscripción del banco de datos, cuando lo tengan
   },

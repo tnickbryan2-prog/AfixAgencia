@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#74119E" />
   <title>Registro de Vouchers · Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -93,7 +93,7 @@
             <input id="acepta" type="checkbox" />
             <span>
               <strong>Acepto el uso de mis datos <em class="req">(obligatorio)</em></strong>
-              <small>Autorizo a <b id="cResp">Artecola Perú</b> a usar mi nombre, apellido, teléfono y la foto de mi comprobante para registrar mi participación en esta promoción, entregarme el premio y verificar la compra. Acepto que se almacenen en servidores ubicados fuera del Perú, en <span id="cUbic">Brasil</span>, y se conserven <span id="cCons">hasta 6 meses después de la promoción</span>. Puedo pedir su eliminación en cualquier momento. <a href="privacidad.html" target="_blank" rel="noopener">Ver política de privacidad</a></small>
+              <small>Autorizo a <b id="cResp">Artecola Perú</b> a usar mi nombre, apellido, teléfono y la foto de mi comprobante para registrar mi participación en esta promoción, entregarme el premio y verificar la compra. Acepto que se almacenen en servidores ubicados fuera del Perú, en <span id="cUbic">Brasil</span>,. Puedo pedir su eliminación en cualquier momento. <a href="privacidad.html" target="_blank" rel="noopener">Ver política de privacidad</a></small>
             </span>
           </label>
           <div class="err">Sin esta autorización no se puede registrar al cliente.</div>
@@ -126,8 +126,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=10"></script>
-  <script src="api.js?v=10"></script>
+  <script src="config.js?v=11"></script>
+  <script src="api.js?v=11"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -141,7 +141,6 @@
       const PRIV = CFG.PRIVACIDAD || {};
       if (PRIV.RESPONSABLE) $("cResp").textContent = PRIV.RESPONSABLE;
       if (PRIV.UBICACION_SERVIDORES) $("cUbic").textContent = PRIV.UBICACION_SERVIDORES.split(",")[0];
-      if (PRIV.CONSERVACION) $("cCons").textContent = PRIV.CONSERVACION;
       $("campana").textContent = CFG.CAMPANA || "";
 
       // Tiendas → promotoras asignadas
