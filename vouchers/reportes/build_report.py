@@ -5,6 +5,7 @@ Uso:
   python build_report.py metrics data.json [--config vouchers/config.js]
       -> imprime el resumen de KPIs para redactar el análisis
   python build_report.py render data.json analysis.json salida.pdf [--config vouchers/config.js]
+  python build_report.py email  data.json analysis.json correo.html [--config vouchers/config.js]
 """
 import json, sys, html, datetime as dt
 from collections import Counter, defaultdict
@@ -379,6 +380,77 @@ def render_html(m, a, generado):
     </div>"""
     return f'<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte semanal vouchers {esc(rng)}</title><style>{CSS}</style></head><body>{p1}{p2}{p3}</body></html>'
 
+
+# ------------------------------------------------------------------ EMAIL (HTML compatible con Gmail/Outlook)
+def render_email(m, a, generado):
+    P, C, INK, MUT, LINE, SOFT = "#74119e", "#c93f3f", "#1d1424", "#6b6274", "#e7e1ec", "#f3e8f8"
+    rng = f"{fd(m['s'])} al {fd(m['e'])} {m['e'].year}"
+    td = lambda x, st="": f'<td style="padding:7px 8px;border-bottom:1px solid #f0ecf3;font-size:13px;{st}">{x}</td>'
+    th = lambda x, al="left": f'<th align="{al}" style="padding:7px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:{MUT};background:#fbfafc;border-bottom:1px solid {LINE};">{x}</th>'
+    def bar(frac, color=P):
+        w = max(0, min(100, round((frac or 0) * 100)))
+        return (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:{SOFT};border-radius:6px"><tr>'
+                + (f'<td width="{w}%" style="background:{color};height:8px;border-radius:6px;font-size:0;line-height:0">&nbsp;</td>' if w else "")
+                + f'<td style="height:8px;font-size:0;line-height:0">&nbsp;</td></tr></table>')
+    def dlt(x):
+        if x is None: return f'<span style="color:{MUT}">—</span>'
+        return f'<span style="color:{"#1f8a4c" if x >= 0 else C};font-weight:700">{"▲" if x >= 0 else "▼"} {pct(abs(x))}</span>'
+    def card(label, val, sub):
+        return (f'<td width="25%" valign="top" style="padding:4px"><table role="presentation" width="100%" style="background:#fff;border:1px solid {LINE};border-radius:10px"><tr><td style="padding:12px">'
+                f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:{MUT};font-weight:700">{label}</div>'
+                f'<div style="font-size:24px;font-weight:800;color:{INK};margin-top:2px">{val}</div><div style="font-size:11px;color:{MUT}">{sub}</div></td></tr></table></td>')
+    est_col = {"Cumplió": "#1f8a4c", "En riesgo": "#d99a1e", "Bajo meta": C}
+    meta_v = pct(m["total"] / m["meta_sem_equipo"]) if m["meta_sem_equipo"] else "—"
+    meta_s = f'{m["total"]} de {m["meta_sem_equipo"]}' if m["meta_sem_equipo"] else "Meta no definida"
+    maxd = max([1] + [m["per_day"][d] for d in m["days"]])
+    days = "".join(f'<tr>{td(f"{DOW[d.isoweekday()-1]} {d.day}", "width:70px;color:"+MUT)}<td style="padding:5px 8px;border-bottom:1px solid #f0ecf3">{bar(m["per_day"][d]/maxd)}</td>{td("<b>"+str(m["per_day"][d])+"</b>", "text-align:right;width:40px")}{td(str(m["per_day_p"][d]), "text-align:right;width:50px;color:"+MUT)}</tr>' for d in m["days"])
+    prom = "".join("<tr>" + td(f'<b>{esc(r["promotora"])}</b><br><span style="font-size:11px;color:{MUT}">{esc(" · ".join(t.replace("Sodimac ","") for t in r["tiendas"]))}</span>')
+        + td(f'<b>{r["semana"]}</b>', "text-align:right") + td(str(r["previa"]), "text-align:right;color:"+MUT) + td(dlt(r["var"]), "text-align:right")
+        + td((bar(r["cumpl"], est_col.get(r["estado"], P)) + f'<span style="font-size:11px;color:{MUT}">{pct(r["cumpl"])} de {r["meta"]}</span>') if r["cumpl"] is not None else f'<span style="color:{MUT};font-size:11px">Sin meta</span>', "width:110px")
+        + td(f'{r["dias"]}/{len(m["act_days"])}', "text-align:right")
+        + td(f'<span style="color:{est_col.get(r["estado"], MUT)};font-weight:700">{esc(r["estado"])}</span>') + "</tr>" for r in m["prom_rows"])
+    tie = "".join("<tr>" + td(f'<b>{esc(r["tienda"].replace("Sodimac ",""))}</b><br><span style="font-size:11px;color:{MUT}">{esc(r["promotora"])}</span>')
+        + td(f'<b>{r["semana"]}</b>', "text-align:right") + td(dlt(r["var"]), "text-align:right")
+        + td(bar(r["share"]) + f'<span style="font-size:11px;color:{MUT}">{pct(r["share"])}</span>', "width:100px")
+        + td(f'<span style="color:{"#1f8a4c" if r["sin_reg"]==0 else (C if r["sin_reg"]>=3 else "#9a6a00")};font-weight:700">{r["sin_reg"]}</span>', "text-align:right") + "</tr>" for r in m["tie_rows"])
+    def scol(c):
+        if c["saldo"] < 0: return C
+        if c["rec"] > 0 and (c["saldo"] <= STOCK_MIN or (c["cobertura"] is not None and c["cobertura"] < 1)): return "#9a6a00"
+        return "#1f8a4c" if c["rec"] > 0 else MUT
+    stock = "".join("<tr>" + td(f'<b>{esc(r["promotora"])}</b>') + "".join(td(f'<b style="color:{scol(c)}">{c["saldo"]}</b>', "text-align:right") for c in r["cells"]) + td(f'<b>{r["saldo"]}</b>', "text-align:right") + "</tr>" for r in m["stock_rows"])
+    alert = (f'<p style="margin:8px 0 0;font-size:12px;background:#fffaf0;border:1px solid #f2e2b8;border-radius:8px;padding:8px 10px"><b style="color:#8a5d00">Alertas de stock:</b> {esc(" · ".join(m["alertas_stock"]))}</p>') if m["alertas_stock"] else ""
+    lst = lambda items, color: "".join(f'<tr><td style="border-left:3px solid {color};background:#fff;padding:8px 12px;border-radius:0 8px 8px 0"><b style="font-size:13px">{esc(x.get("titulo",""))}</b><br><span style="font-size:12.5px;color:{INK}">{esc(x.get("detalle",""))}</span></td></tr><tr><td style="height:6px;font-size:0">&nbsp;</td></tr>' for x in items)
+    pcol = lambda p: {"alta": C, "media": "#d99a1e"}.get((p or "").lower(), MUT)
+    acts = "".join("<tr>" + td(f'<b>{i+1}</b>', "width:20px") + td(f'<b>{esc(x.get("accion",""))}</b><br><span style="font-size:11px;color:{MUT}">{esc(x.get("impacto",""))}</span>')
+        + td(esc(x.get("responsable",""))) + td(esc(x.get("plazo",""))) + td(f'<b style="color:{pcol(x.get("prioridad"))}">{esc(x.get("prioridad",""))}</b>') + "</tr>" for i, x in enumerate(a.get("acciones", [])))
+    sec = lambda title, inner: (f'<tr><td style="padding:6px 16px"><table role="presentation" width="100%" style="background:#fff;border:1px solid {LINE};border-radius:12px"><tr><td style="padding:14px">'
+        f'<div style="font-size:15px;font-weight:800;color:{INK};margin-bottom:8px">{title}</div>{inner}</td></tr></table></td></tr>')
+    tbl = lambda head, body: f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">{head}{body}</table>'
+    best = f'{DOW[m["best_day"].isoweekday()-1]} {m["best_day"].day}' if m["best_day"] else "—"
+    return f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;background:#f7f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:{INK}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f9"><tr><td align="center">
+<table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%">
+<tr><td style="background:{P};background-image:linear-gradient(120deg,#74119e 0%,#560c76 65%,#c93f3f 140%);padding:24px 20px;color:#fff">
+  <div style="font-size:12px;opacity:.85;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Artecola Perú · Reporte para Gerencia</div>
+  <div style="font-size:22px;font-weight:800;margin-top:4px">Activación Afix PVC · Sodimac</div>
+  <div style="font-size:14px;opacity:.9;margin-top:2px">Semana del {esc(rng)}</div></td></tr>
+<tr><td style="padding:12px 12px 0"><table role="presentation" width="100%"><tr>
+  {card("Vouchers", m["total"], dlt(m["var"]) + " vs previa")}{card("Prom. por día", f'{m["prom_dia"]:.1f}', f'{len(m["act_days"])} días')}{card("Meta semanal", meta_v, meta_s)}{card("Clientes únicos", m["unicos"], f'{m["repetidos"]} repetidos')}
+</tr><tr>
+  {card("Tiendas activas", f'{m["tiendas_activas"]}/{m["n_tiendas"]}', "con registros")}{card("Promotoras activas", f'{m["promos_activas"]}/{m["n_promos"]}', "con registros")}{card("Premios", m["premios_tot"], "entregados")}{card("Mejor día", best, (f'{m["per_day"][m["best_day"]]} vouchers' if m["best_day"] else ""))}
+</tr></table></td></tr>
+{sec("Resumen ejecutivo", '<ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.5">' + "".join(f'<li style="margin-bottom:6px">{x}</li>' for x in a.get("resumen", [])) + "</ul>")}
+{sec("Vouchers por día", tbl("<tr>"+th("Día")+th("")+th("Semana","right")+th("Previa","right")+"</tr>", days))}
+{sec("Ranking de promotoras", tbl("<tr>"+th("Promotora")+th("Sem.","right")+th("Prev.","right")+th("Var.","right")+th("Meta")+th("Const.","right")+th("Estado")+"</tr>", prom))}
+{sec("Rendimiento por tienda", tbl("<tr>"+th("Tienda")+th("Sem.","right")+th("Var.","right")+th("Particip.")+th("Días sin reg.","right")+"</tr>", tie))}
+{sec("Stock de premios al cierre", tbl("<tr>"+th("Promotora")+"".join(th(esc(z.replace(" 2 oz","").replace("Adhesivo ","Adh. ")),"right") for z in m["premios_names"])+th("Total","right")+"</tr>", stock) + alert)}
+{sec("Hallazgos de la semana", f'<table role="presentation" width="100%">{lst(a.get("hallazgos", []), P)}</table>')}
+{sec("Puntos de mejora", f'<table role="presentation" width="100%">{lst(a.get("mejoras", []), C)}</table>')}
+{sec("Acciones recomendadas", tbl("<tr>"+th("#")+th("Acción")+th("Responsable")+th("Plazo")+th("Prioridad")+"</tr>", acts))}
+<tr><td style="padding:14px 18px 26px;font-size:11px;color:{MUT}">Fuente: portal de registro de vouchers. Generado el {esc(generado)}. Datos de clientes anonimizados. El PDF de este reporte está disponible en Claude.</td></tr>
+</table></td></tr></table></body></html>"""
+
 def to_pdf(html_str, out):
     tmp = out.rsplit(".", 1)[0] + ".html"
     open(tmp, "w", encoding="utf-8").write(html_str)
@@ -413,3 +485,9 @@ if __name__ == "__main__":
         gen = dt.datetime.now(dt.timezone(dt.timedelta(hours=-5))).strftime("%d/%m/%Y %H:%M") + " (Lima)"
         to_pdf(render_html(m, a, gen), sys.argv[4])
         print("PDF generado:", sys.argv[4])
+    elif cmd == "email":
+        a = json.load(open(sys.argv[3], encoding="utf-8"))
+        gen = dt.datetime.now(dt.timezone(dt.timedelta(hours=-5))).strftime("%d/%m/%Y %H:%M") + " (Lima)"
+        out = render_email(m, a, gen)
+        open(sys.argv[4], "w", encoding="utf-8").write(out)
+        print(f"Email HTML generado: {sys.argv[4]} ({len(out)//1024} KB)")
