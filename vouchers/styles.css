@@ -360,3 +360,10 @@ tr:hover td { background: #fcfaFD; }
 .ruleta-chip { background: var(--purple-soft); border: 1px solid #e2d0ec; color: var(--purple); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 10px; }
 .ruleta-chip a { color: var(--coral); font-weight: 700; margin-left: 4px; }
 a.btn { text-decoration: none; }
+
+/* Precios competencia (admin) */
+.price-table td.cheap { background: #eef8f2; }
+.price-table td.cheap b { color: var(--ok); }
+.up-r { color: var(--coral); font-weight: 700; }
+.down-g { color: var(--ok); font-weight: 700; }
+.tabs-form a { font-size: 13.5px; }

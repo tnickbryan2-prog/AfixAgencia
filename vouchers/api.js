@@ -130,6 +130,44 @@
       return data;
     },
 
+    // ---------- Precios de competencia ----------
+    async submitPrecios(rows) {
+      const visita = uuid();
+      const items = rows.map((r) => ({ ...r, visita_id: visita }));
+      if (CFG.DEMO) {
+        const cur = (() => { try { return JSON.parse(localStorage.getItem("precios_demo") || "[]"); } catch { return []; } })();
+        const now = new Date().toISOString();
+        items.forEach((it) => cur.unshift({ id: uuid(), created_at: now, fecha: it.fecha || now.slice(0, 10), ...it }));
+        localStorage.setItem("precios_demo", JSON.stringify(cur.slice(0, 5000)));
+        await new Promise((r) => setTimeout(r, 400));
+        return;
+      }
+      const { error } = await client().from("precios_competencia").insert(items);
+      if (error) throw new Error("No se pudo guardar: " + error.message);
+    },
+
+    async listPrecios() {
+      if (CFG.DEMO) { try { return JSON.parse(localStorage.getItem("precios_demo") || "[]"); } catch { return []; } }
+      const c = client(), all = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await c.from("precios_competencia").select("*").order("fecha", { ascending: false }).range(from, from + 999);
+        if (error) throw new Error(error.message);
+        all.push(...data);
+        if (data.length < 1000) break;
+      }
+      return all;
+    },
+
+    async deleteVisita(visitaId) {
+      if (CFG.DEMO) {
+        const cur = (await API.listPrecios()).filter((r) => r.visita_id !== visitaId);
+        localStorage.setItem("precios_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("precios_competencia").delete().eq("visita_id", visitaId);
+      if (error) throw new Error(error.message);
+    },
+
     async getSession() {
       if (CFG.DEMO) return sessionStorage.getItem("demo_admin") ? { user: { email: "demo@admin" } } : null;
       const { data } = await client().auth.getSession();

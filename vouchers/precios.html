@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#74119E" />
+  <title>Precios de competencia · Afix Sodimac</title>
+  <link rel="stylesheet" href="styles.css?v=15" />
+  <style>
+    .p-wrap { max-width: 560px; margin: -10px auto 110px; padding: 0 14px; }
+    .visit { padding: 18px 18px 6px; }
+    .row2b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .daybadge { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 5px 11px; margin-bottom: 12px; }
+    .daybadge.we { background: #e5f5ec; color: var(--ok); }
+    .daybadge.wd { background: #fdf3dc; color: #9a6a00; }
+    .hint { font-size: 13px; color: var(--muted); margin: 14px 2px 8px; }
+    .size-h { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--purple); margin: 18px 4px 8px; }
+    .sku { padding: 12px 14px 12px; margin-bottom: 10px; transition: border-color .15s, box-shadow .15s; }
+    .sku.filled { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(116,17,158,.08); }
+    .sku.na { opacity: .7; background: #faf8fb; }
+    .sku-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.12); }
+    .sku-name { font-weight: 700; font-size: 14.5px; flex: 1; }
+    .na-toggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+    .na-toggle input { accent-color: var(--coral); }
+    .grid-p { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .money { position: relative; }
+    .money span { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+    .money input { padding-left: 32px !important; }
+    .sku .field { margin-bottom: 8px; }
+    .sku .field label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    .sku .field input, .sku .field select { height: 44px; font-size: 15px; }
+    .sku.na .grid-p, .sku.na .promo-row { display: none; }
+    .promo-row { display: grid; grid-template-columns: 0.9fr 1.4fr; gap: 8px; }
+    .warn-txt { color: #9a6a00; font-size: 12px; margin-top: -4px; display: none; }
+    .sku.badpromo .warn-txt { display: block; }
+    .bar-bottom { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -6px 20px rgba(29,20,36,.08); padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); z-index: 20; }
+    .bar-bottom .in { max-width: 560px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+    .bar-bottom .count { font-size: 13px; color: var(--muted); flex: 1; }
+    .bar-bottom .count b { color: var(--purple); font-size: 16px; }
+    .bar-bottom .btn { height: 50px; padding: 0 22px; }
+  </style>
+</head>
+<body>
+  <div id="demoBanner" class="demo-banner hidden">Modo demo: los precios se guardan solo en este navegador.</div>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand-mark">A</div>
+      <div><h1>Precios de competencia</h1><p>Relevamiento de fin de semana · Sodimac</p></div>
+    </div>
+  </header>
+
+  <main class="p-wrap">
+    <nav class="tabs-form"><a href="index.html">Registro</a><a href="ruleta.html">🎡 Ruleta</a><a class="active" href="precios.html">💲 Precios</a></nav>
+
+    <section id="formView">
+      <div id="formError" class="alert alert-error hidden"></div>
+      <div class="card visit">
+        <div id="dayBadge" class="daybadge"></div>
+        <div class="row2b">
+          <div class="field" id="f-tienda"><label for="tienda">Tienda</label><select id="tienda"></select><div class="err">Elige la tienda.</div></div>
+          <div class="field" id="f-promotora"><label for="promotora">Promotora</label><select id="promotora"></select><div class="err">Elige tu nombre.</div></div>
+        </div>
+        <div class="field" id="f-marca">
+          <label for="marca">Marca que estás relevando</label>
+          <select id="marca"></select>
+          <input id="marcaOtra" class="hidden" maxlength="60" placeholder="Escribe la marca" style="margin-top:8px" />
+          <div class="err">Indica la marca.</div>
+        </div>
+      </div>
+      <p class="hint">Llena solo los productos de esta marca que encuentres en góndola. Si no lo tienen, marca <b>"No hay"</b>. Registra una marca a la vez.</p>
+      <div id="skus"></div>
+    </section>
+
+    <section id="okView" class="card success hidden">
+      <div class="check"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h2>¡Precios enviados!</h2>
+      <p id="okText"></p>
+      <button id="otraMarca" class="btn btn-primary btn-block">Registrar otra marca en esta tienda</button>
+      <a href="index.html" class="btn btn-ghost btn-block" style="margin-top:10px">Volver al registro de vouchers</a>
+    </section>
+  </main>
+
+  <div class="bar-bottom" id="bar"><div class="in">
+    <div class="count"><b id="nFilled">0</b> de <span id="nTotal">0</span> productos con datos</div>
+    <button class="btn btn-primary" id="sendBtn">Enviar precios</button>
+  </div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="config.js?v=15"></script>
+  <script src="api.js?v=15"></script>
+  <script>
+  (function () {
+    const CFG = window.APP_CONFIG, PC = CFG.PRECIOS || {};
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+    if (API.isDemo) $("demoBanner").classList.remove("hidden");
+
+    const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
+    const dow = new Date(hoy + "T12:00:00").getDay();
+    const fechaTxt = new Intl.DateTimeFormat("es-PE", { weekday: "long", day: "numeric", month: "long" }).format(new Date(hoy + "T12:00:00"));
+    $("dayBadge").className = "daybadge " + (dow === 0 || dow === 6 ? "we" : "wd");
+    $("dayBadge").textContent = (dow === 0 || dow === 6 ? "✓ Relevamiento de fin de semana · " : "Relevamiento entre semana · ") + fechaTxt;
+
+    // Tienda / promotora (mismos criterios que el registro)
+    const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? t : t.tienda));
+    const PROMOS = (CFG.PROMOTORAS || []).slice().sort((a, b) => a.localeCompare(b, "es"));
+    $("tienda").innerHTML = '<option value="">Elige…</option>' + TIENDAS.map((t) => `<option value="${esc(t)}">${esc(t.replace(/^Sodimac\s+/i, ""))}</option>`).join("");
+    $("promotora").innerHTML = '<option value="">Elige…</option>' + PROMOS.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+    if (store.get("v_tienda_dia") === hoy && TIENDAS.includes(store.get("v_tienda"))) $("tienda").value = store.get("v_tienda");
+    if (PROMOS.includes(store.get("v_promotora"))) $("promotora").value = store.get("v_promotora");
+
+    // Marcas: lista configurada + las que la promotora ya escribió antes en este celular
+    let extra = []; try { extra = JSON.parse(store.get("precios_marcas") || "[]"); } catch {}
+    const MARCAS = [...new Set([...(PC.MARCAS || []), ...extra])];
+    function fillMarcas() {
+      $("marca").innerHTML = '<option value="">Elige la marca…</option>' + MARCAS.map((m) => `<option value="${esc(m)}">${esc(m)}${m === "Afix" ? " (nuestra marca)" : ""}</option>`).join("") + '<option value="__otra">Otra marca…</option>';
+    }
+    fillMarcas();
+    $("marca").onchange = () => { $("marcaOtra").classList.toggle("hidden", $("marca").value !== "__otra"); $("f-marca").classList.remove("invalid"); if ($("marca").value === "__otra") $("marcaOtra").focus(); };
+
+    // SKUs agrupados por tamaño
+    const SKUS = PC.SKUS || [];
+    const COLOR = { azul: "#2f6fd6", dorado: "#d4a72c", negro: "#222", naranja: "#f07a1a" };
+    const colorOf = (s) => COLOR[Object.keys(COLOR).find((c) => s.toLowerCase().includes(c))] || "#bbb";
+    const sizeOf = (s) => (s.match(/(\d+)\s*oz/i) || [, "Otros"])[1];
+    const groups = {}; SKUS.forEach((s) => (groups[sizeOf(s)] = groups[sizeOf(s)] || []).push(s));
+    let html = "";
+    Object.entries(groups).sort((a, b) => Number(a[0]) - Number(b[0])).forEach(([size, list]) => {
+      html += `<div class="size-h">${esc(size)} oz</div>`;
+      list.forEach((s) => {
+        const i = SKUS.indexOf(s);
+        html += `<div class="card sku" data-i="${i}">
+          <div class="sku-top"><span class="dot" style="background:${colorOf(s)}"></span><span class="sku-name">${esc(s)}</span>
+            <label class="na-toggle"><input type="checkbox" class="na" /> No hay</label></div>
+          <div class="grid-p">
+            <div class="field"><label>Precio regular</label><div class="money"><span>S/</span><input class="pr" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div></div>
+            <div class="field"><label>Precio oferta (si hay)</label><div class="money"><span>S/</span><input class="po" type="number" inputmode="decimal" step="0.01" min="0" placeholder="—" /></div></div>
+          </div>
+          <div class="warn-txt">El precio de oferta es mayor o igual al regular. Revísalo.</div>
+          <div class="promo-row">
+            <div class="field"><label>Promoción</label><select class="pt"><option value="">Ninguna</option>${(PC.PROMOS || []).map((p) => `<option>${esc(p)}</option>`).join("")}</select></div>
+            <div class="field"><label>Comentario</label><input class="cm" maxlength="300" placeholder="Ej. 3x2 en 8 oz, exhibición en cabecera" /></div>
+          </div>
+        </div>`;
+      });
+    });
+    $("skus").innerHTML = html;
+    $("nTotal").textContent = SKUS.length;
+
+    function readCard(card) {
+      const q = (c) => card.querySelector(c);
+      const pr = parseFloat(q(".pr").value), po = parseFloat(q(".po").value);
+      return { sku: SKUS[+card.dataset.i], na: q(".na").checked, pr: isFinite(pr) && pr > 0 ? Math.round(pr * 100) / 100 : null, po: isFinite(po) && po > 0 ? Math.round(po * 100) / 100 : null, pt: q(".pt").value || null, cm: q(".cm").value.trim() || null };
+    }
+    const hasData = (d) => d.na || d.pr || d.po || d.pt || d.cm;
+    function refresh() {
+      let n = 0;
+      document.querySelectorAll(".sku").forEach((card) => {
+        const d = readCard(card);
+        card.classList.toggle("na", d.na);
+        card.classList.toggle("filled", !!hasData(d));
+        card.classList.toggle("badpromo", !!(d.pr && d.po && d.po >= d.pr));
+        if (hasData(d)) n++;
+      });
+      $("nFilled").textContent = n;
+    }
+    $("skus").addEventListener("input", refresh);
+    $("skus").addEventListener("change", refresh);
+    ["tienda", "promotora"].forEach((id) => $(id).addEventListener("change", () => $("f-" + id).classList.remove("invalid")));
+    $("marcaOtra").addEventListener("input", () => $("f-marca").classList.remove("invalid"));
+
+    function showError(msg) { $("formError").textContent = msg; $("formError").classList.remove("hidden"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+    $("sendBtn").onclick = async () => {
+      $("formError").classList.add("hidden");
+      const tienda = $("tienda").value, promotora = $("promotora").value;
+      const marca = $("marca").value === "__otra" ? $("marcaOtra").value.trim().replace(/\s+/g, " ") : $("marca").value;
+      const bad = { tienda: !tienda, promotora: !promotora, marca: !marca || marca.length < 2 };
+      Object.entries(bad).forEach(([k, v]) => $("f-" + k).classList.toggle("invalid", v));
+      if (bad.tienda || bad.promotora || bad.marca) { showError("Completa tienda, promotora y marca."); return; }
+      const rows = [...document.querySelectorAll(".sku")].map(readCard).filter(hasData).map((d) => ({
+        fecha: hoy, tienda, promotora, marca, sku: d.sku, disponible: !d.na,
+        precio_regular: d.na ? null : d.pr, precio_promo: d.na ? null : d.po, promo_tipo: d.na ? null : d.pt, comentario: d.cm,
+      }));
+      if (!rows.length) { showError("Llena al menos un producto (precio o \"No hay\")."); return; }
+      const sinPrecio = rows.filter((r) => r.disponible && !r.precio_regular && !r.precio_promo).length;
+      if (sinPrecio && !confirm(`${sinPrecio} producto(s) tienen promoción o comentario pero sin precio. ¿Enviar igual?`)) return;
+      const btn = $("sendBtn"); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Enviando…';
+      try {
+        await API.submitPrecios(rows);
+        store.set("v_tienda", tienda); store.set("v_tienda_dia", hoy); store.set("v_promotora", promotora);
+        if (!MARCAS.includes(marca)) { extra.push(marca); store.set("precios_marcas", JSON.stringify(extra.slice(-20))); MARCAS.push(marca); fillMarcas(); }
+        $("okText").textContent = `${marca} · ${rows.length} producto${rows.length === 1 ? "" : "s"} · ${tienda.replace(/^Sodimac\s+/i, "")}`;
+        $("formView").classList.add("hidden"); $("bar").classList.add("hidden"); $("okView").classList.remove("hidden");
+        window.scrollTo({ top: 0 });
+      } catch (e) {
+        showError((e && e.message) || "No se pudo enviar. Revisa tu conexión.");
+      } finally { btn.disabled = false; btn.textContent = "Enviar precios"; }
+    };
+
+    $("otraMarca").onclick = () => {
+      document.querySelectorAll(".sku").forEach((card) => { card.querySelectorAll("input").forEach((i) => (i.type === "checkbox" ? (i.checked = false) : (i.value = ""))); card.querySelector(".pt").value = ""; });
+      $("marca").value = ""; $("marcaOtra").value = ""; $("marcaOtra").classList.add("hidden");
+      refresh();
+      $("okView").classList.add("hidden"); $("formView").classList.remove("hidden"); $("bar").classList.remove("hidden");
+      window.scrollTo({ top: 0 });
+    };
+  })();
+  </script>
+</body>
+</html>

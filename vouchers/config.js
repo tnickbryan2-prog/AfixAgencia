@@ -41,6 +41,21 @@ window.APP_CONFIG = {
   ],
   SIN_PREMIO: "Sin premio (sigue intentando)",
 
+  // Relevamiento de precios de competencia (fines de semana)
+  PRECIOS: {
+    // Marcas a relevar. "Afix" se incluye para comparar contra el precio propio en góndola.
+    MARCAS: ["Afix"],
+    // Tipos de promoción que se pueden marcar por SKU
+    PROMOS: ["2x1", "3x2", "3x1", "% descuento", "Precio especial", "Regalo / combo", "Otra"],
+    SKUS: [
+      "Pegamento PVC 2 oz azul", "Pegamento PVC 2 oz dorado",
+      "Pegamento PVC 4 oz azul", "Pegamento CPVC 4 oz naranja", "Pegamento PVC 4 oz negro", "Pegamento PVC 4 oz dorado",
+      "Pegamento PVC 8 oz azul", "Pegamento PVC 8 oz dorado", "Pegamento PVC 8 oz negro", "Pegamento CPVC 8 oz naranja",
+      "Pegamento PVC 16 oz azul", "Pegamento PVC 16 oz dorado", "Pegamento PVC 16 oz negro", "Pegamento CPVC 16 oz naranja",
+      "Pegamento PVC 32 oz azul", "Pegamento PVC 32 oz dorado", "Pegamento PVC 32 oz negro", "Pegamento CPVC 32 oz naranja",
+    ],
+  },
+
   // Alerta de stock bajo cuando a una promotora le quedan esta cantidad o menos
   STOCK_MINIMO: 5,
 
