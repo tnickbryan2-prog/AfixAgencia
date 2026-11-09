@@ -29,6 +29,18 @@ window.APP_CONFIG = {
     "Adhesivo Azul 2 oz",
   ],
 
+  // Ruleta "Gira y gana": los 6 segmentos de la ruleta física, en sentido horario desde arriba.
+  // tipo: lapicero | adhesivo | especial | ninguno. peso: probabilidad relativa (1 = igual que el resto).
+  RULETA: [
+    { tipo: "especial", titulo: "PREMIO ESPECIAL", detalle: "Un lapicero Afix + adhesivo Afix", estilo: "blanco", peso: 1 },
+    { tipo: "lapicero", titulo: "GANASTE", detalle: "Un lapicero Afix", estilo: "morado", peso: 1 },
+    { tipo: "ninguno",  titulo: "SIGUE", detalle: "Intentando", estilo: "morado2", peso: 1 },
+    { tipo: "lapicero", titulo: "GANASTE", detalle: "Un lapicero Afix", estilo: "blanco", peso: 1 },
+    { tipo: "adhesivo", titulo: "GANASTE", detalle: "Un adhesivo Afix", estilo: "lila", peso: 1 },
+    { tipo: "lapicero", titulo: "GANASTE", detalle: "Un lapicero Afix", estilo: "morado", peso: 1 },
+  ],
+  SIN_PREMIO: "Sin premio (sigue intentando)",
+
   // Alerta de stock bajo cuando a una promotora le quedan esta cantidad o menos
   STOCK_MINIMO: 5,
 

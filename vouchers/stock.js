@@ -18,11 +18,17 @@
   let filt = { promotora: "", premio: "" };
   let draft = { fecha: todayKey(), tipo: "entrega", promotora: "", qty: {}, nota: "" };
 
+  // "Lapicero + Adhesivo Gris 2 oz" descuenta ambos artículos; "Sin premio" no descuenta nada
+  const SIN = CFG.SIN_PREMIO || "Sin premio (sigue intentando)";
+  function components(premio) {
+    if (!premio || premio === SIN) return [];
+    return premio.split(" + ").map((x) => x.trim()).filter(Boolean);
+  }
   function premiosList() {
-    return [...new Set([...(CFG.PREMIOS || []), ...movs.map((m) => m.premio), ...vouchers.map((v) => v.premio).filter(Boolean)])];
+    return [...new Set([...(CFG.PREMIOS || []), ...movs.map((m) => m.premio), ...vouchers.flatMap((v) => components(v.premio))])];
   }
   function promosList() {
-    return [...new Set([...PROMOS_CFG, ...movs.map((m) => m.promotora), ...vouchers.filter((v) => v.premio).map((v) => v.promotora)])];
+    return [...new Set([...PROMOS_CFG, ...movs.map((m) => m.promotora), ...vouchers.filter((v) => components(v.premio).length).map((v) => v.promotora)])];
   }
 
   function compute() {
@@ -35,8 +41,10 @@
       if (m.tipo === "devolucion") c.dev += m.cantidad; else c.rec += m.cantidad;
     });
     vouchers.forEach((v) => {
-      const c = v.premio && cell[v.promotora] && cell[v.promotora][v.premio];
-      if (c) c.cli++;
+      components(v.premio).forEach((z) => {
+        const c = cell[v.promotora] && cell[v.promotora][z];
+        if (c) c.cli++;
+      });
     });
     const tot = { rec: 0, dev: 0, cli: 0 };
     const byPremio = {};

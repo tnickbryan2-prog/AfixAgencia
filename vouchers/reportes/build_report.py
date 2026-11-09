@@ -25,6 +25,10 @@ TIENDAS = {
 }
 PREMIOS = ["Lapicero", "Adhesivo Gris 2 oz", "Adhesivo Dorado 2 oz", "Adhesivo Azul 2 oz"]
 STOCK_MIN = 5
+SIN_PREMIO = "Sin premio (sigue intentando)"
+def components(z):
+    if not z or z == SIN_PREMIO or str(z).lower().startswith("sin premio"): return []
+    return [x.strip() for x in str(z).split(" + ") if x.strip()]
 DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]  # isoweekday-1
 MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 MESES_L = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
@@ -113,15 +117,16 @@ def compute(data):
         ))
     tie_rows.sort(key=lambda r: (-r["semana"], r["tienda"]))
 
-    premios_names = list(dict.fromkeys(PREMIOS + [v["z"] for v in W if v.get("z")]))
-    premios_sem = {z: sum(1 for v in W if v.get("z") == z) for z in premios_names}
+    premios_names = list(dict.fromkeys(PREMIOS + [c for v in W for c in components(v.get("z"))]))
+    premios_sem = {z: sum(components(v.get("z")).count(z) for v in W) for z in premios_names}
 
     # stock al cierre de la semana
     rec = defaultdict(int); cli = defaultdict(int); cli_sem = defaultdict(int)
     for r in data.get("stock", []): rec[(r["p"], r["z"])] += int(r.get("rec") or 0) - int(r.get("dev") or 0)
-    for r in data.get("clientes_premio", []): cli[(r["p"], r["z"])] += int(r["n"])
+    for r in data.get("clientes_premio", []):
+        for c in components(r["z"]): cli[(r["p"], c)] += int(r["n"])
     for v in W:
-        if v.get("z"): cli_sem[(v["p"], v["z"])] += 1
+        for c in components(v.get("z")): cli_sem[(v["p"], c)] += 1
     stock_rows, alertas_stock = [], []
     for p in promos:
         cells = []

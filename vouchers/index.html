@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#74119E" />
   <title>Registro de Vouchers · Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -21,6 +21,7 @@
   </header>
 
   <main class="form-wrap">
+    <nav class="tabs-form"><a class="active" href="index.html">Registro de voucher</a><a href="ruleta.html">🎡 Ruleta Gira y Gana</a></nav>
     <!-- Formulario -->
     <section id="formView" class="card form-card">
       <div id="formError" class="alert alert-error hidden"></div>
@@ -79,6 +80,7 @@
 
         <div class="divider"></div>
         <p class="section-label">4 · Premio entregado</p>
+        <div class="ruleta-chip hidden" id="ruletaChip"></div>
         <div class="field" id="f-premio">
           <label for="premio">¿Qué se le entregó al cliente?</label>
           <select id="premio"><option value="">Selecciona el premio…</option></select>
@@ -121,13 +123,14 @@
       <h2>¡Voucher registrado!</h2>
       <p id="okText">Los datos se guardaron correctamente.</p>
       <div class="counter-chip" id="counter">Hoy llevas 1 registro</div>
-      <button id="againBtn" class="btn btn-primary btn-block">Registrar otro voucher</button>
+      <a href="ruleta.html" class="btn btn-primary btn-block" id="nextSpin">🎡 Siguiente cliente: girar ruleta</a>
+      <button id="againBtn" class="btn btn-ghost btn-block" style="margin-top:10px">Registrar otro voucher sin ruleta</button>
     </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=12"></script>
-  <script src="api.js?v=12"></script>
+  <script src="config.js?v=13"></script>
+  <script src="api.js?v=13"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -168,8 +171,32 @@
         $("f-promotora").classList.remove("invalid");
       }
 
-      $("premio").innerHTML = '<option value="">Selecciona el premio…</option>' +
-        (CFG.PREMIOS || []).map((p) => `<option value="${escH(p)}">${escH(p)}</option>`).join("");
+      // Premios: artículos sueltos, premio especial (lapicero + adhesivo) y "sin premio"
+      const PREM = CFG.PREMIOS || [];
+      const LAP = PREM.find((p) => /lapicero/i.test(p)) || "Lapicero";
+      const ADH = PREM.filter((p) => /adhesivo/i.test(p));
+      const COMBOS = ADH.map((a) => `${LAP} + ${a}`);
+      const SIN = CFG.SIN_PREMIO || "Sin premio (sigue intentando)";
+      const POR_TIPO = { lapicero: [LAP], adhesivo: ADH, especial: COMBOS, ninguno: [SIN] };
+      const TIPO_LBL = { lapicero: "Ganó un lapicero Afix", adhesivo: "Ganó un adhesivo Afix: elige el color entregado", especial: "Premio especial: lapicero + adhesivo. Elige el color del adhesivo", ninguno: "Sigue intentando (sin premio)" };
+      let giro = null; // { id, tipo }
+      function fillPremios() {
+        const list = giro ? POR_TIPO[giro.tipo] || PREM : [...PREM, ...COMBOS, SIN];
+        $("premio").innerHTML = (list.length === 1 ? "" : '<option value="">Selecciona el premio…</option>') +
+          list.map((p) => `<option value="${escH(p)}">${escH(p.startsWith(LAP + " + ") ? "Premio especial: " + p : p)}</option>`).join("");
+        if (list.length === 1) $("premio").value = list[0];
+        const chip = $("ruletaChip");
+        if (giro) { chip.classList.remove("hidden"); chip.innerHTML = `🎡 <b>Resultado de la ruleta:</b> ${escH(TIPO_LBL[giro.tipo] || giro.tipo)} <a href="ruleta.html">Ver ruleta</a>`; }
+        else chip.classList.add("hidden");
+      }
+      (function readGiro() {
+        const q = new URLSearchParams(location.search);
+        let g = null;
+        if (q.get("giro") && POR_TIPO[q.get("premio")]) g = { id: q.get("giro"), tipo: q.get("premio") };
+        else { try { const pd = JSON.parse(store.get("ruleta_pendiente") || "null"); if (pd && POR_TIPO[pd.tipo]) g = { id: pd.id, tipo: pd.tipo }; } catch {} }
+        giro = g;
+      })();
+      fillPremios();
       $("premio").addEventListener("change", () => $("f-premio").classList.remove("invalid"));
 
       if (useSelect) {
@@ -237,6 +264,7 @@
         };
         vals.acepta_datos = ok.acepta;
         vals.acepta_publicidad = $("aceptaPubli").checked;
+        vals.giro_id = giro ? giro.id : null;
         vals.consentimiento_version = (CFG.PRIVACIDAD && CFG.PRIVACIDAD.VERSION) || null;
         let first = null;
         Object.keys(ok).forEach((k) => {
@@ -274,6 +302,9 @@
           await API.submitVoucher(vals, photoFile);
           store.set("v_tienda", vals.tienda);
           store.set("v_promotora", vals.promotora);
+          try { localStorage.removeItem("ruleta_pendiente"); } catch {}
+          giro = null;
+          if (location.search) history.replaceState(null, "", location.pathname);
           const today = new Date().toISOString().slice(0, 10);
           const key = "v_count_" + today;
           const n = (parseInt(store.get(key) || "0", 10) || 0) + 1;
@@ -298,7 +329,7 @@
         $("telefono").value = "";
         $("acepta").checked = false;
         $("aceptaPubli").checked = false;
-        $("premio").value = "";
+        fillPremios();
         $("photoPreview").classList.add("hidden");
         $("photoDrop").classList.remove("hidden");
         $("okView").classList.add("hidden");

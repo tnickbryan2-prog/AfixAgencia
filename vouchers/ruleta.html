@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#5a1281" />
+  <title>Gira y gana · Afix</title>
+  <link rel="stylesheet" href="styles.css?v=13" />
+  <style>
+    body { background: radial-gradient(1200px 700px at 50% -10%, #8a2bbd 0%, #5a1281 45%, #3a0a55 100%); min-height: 100vh; }
+    .r-wrap { max-width: 520px; margin: 0 auto; padding: 14px 14px 40px; color: #fff; }
+    .board { background: linear-gradient(180deg, #74119e 0%, #61108a 100%); border-radius: 26px 26px 18px 18px; padding: 20px 18px 16px; box-shadow: 0 14px 40px rgba(0,0,0,.35); position: relative; }
+    .b-head { display: flex; align-items: center; gap: 14px; }
+    .logo { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; font-weight: 900; font-size: 46px; letter-spacing: -2px; line-height: 1; position: relative; padding-top: 12px; color: #fff; flex: none; }
+    .logo .rays { position: absolute; top: -2px; left: 4px; width: 34px; height: 18px; }
+    .b-title { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; font-weight: 900; line-height: 1.02; font-size: 20px; text-transform: uppercase; }
+    .b-title .coral { color: #ff5a4f; }
+    .banner { margin: 14px 0 0; background: linear-gradient(90deg, #e2262b, #ff4d4d); border-radius: 999px; text-align: center; font-weight: 800; padding: 9px 12px; font-size: 15px; box-shadow: 0 3px 0 #a5161a; }
+    .stage { position: relative; margin: 18px auto 0; width: min(92vw, 470px); aspect-ratio: 1; }
+    .pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); width: 46px; height: 56px; z-index: 3; filter: drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+    #wheel { width: 100%; height: 100%; display: block; transform: rotate(0deg); transition: transform 5.4s cubic-bezier(.12,.68,.1,1); cursor: pointer; filter: drop-shadow(0 10px 22px rgba(0,0,0,.35)); }
+    .hub { position: absolute; inset: 0; margin: auto; width: 30%; height: 30%; border-radius: 50%; background: #74119e; border: 5px solid #fff; display: grid; place-items: center; text-align: center; z-index: 2; pointer-events: none; box-shadow: 0 0 0 3px #74119e, 0 4px 12px rgba(0,0,0,.35); }
+    .hub .logo { font-size: clamp(22px, 7vw, 34px); padding-top: 8px; }
+    .hub .logo .rays { width: 22px; height: 12px; top: -1px; left: 2px; }
+    .hub .gg { font-weight: 900; font-size: clamp(9px, 2.6vw, 13px); letter-spacing: .3px; margin-top: 2px; }
+    .hub svg.swoosh { width: 70%; height: 8px; display: block; margin: 1px auto 0; }
+    .spin-btn { display: block; width: 100%; margin: 22px 0 0; height: 64px; border: 0; border-radius: 18px; background: linear-gradient(180deg, #ff5a4f, #e2262b); color: #fff; font-size: 24px; font-weight: 900; letter-spacing: .5px; box-shadow: 0 5px 0 #a5161a, 0 10px 24px rgba(0,0,0,.3); cursor: pointer; }
+    .spin-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a5161a; }
+    .spin-btn[disabled] { opacity: .55; cursor: not-allowed; }
+    .who { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 12px; font-size: 13px; opacity: .92; flex-wrap: wrap; }
+    .who select { height: 38px; border-radius: 10px; border: 0; padding: 0 10px; font-size: 14px; max-width: 100%; color: #1d1424; background: #fff; }
+    .pending { margin-top: 12px; background: rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; text-align: center; }
+    .pending a { color: #fff; font-weight: 800; }
+    .pending button { background: none; border: 0; color: #ffd0cc; text-decoration: underline; font-size: 13px; cursor: pointer; margin-top: 4px; }
+    /* Modal */
+    .modal { position: fixed; inset: 0; background: rgba(20,4,30,.72); display: grid; place-items: center; z-index: 50; padding: 18px; }
+    .modal .box { background: #fff; color: var(--ink); width: min(420px, 100%); border-radius: 22px; padding: 26px 22px 20px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.45); animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+    @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal .tag { display: inline-block; background: var(--purple-soft); color: var(--purple); font-weight: 800; border-radius: 999px; padding: 5px 12px; font-size: 12px; letter-spacing: .05em; }
+    .modal h2 { font-size: 30px; margin: 12px 0 4px; color: var(--purple); font-weight: 900; line-height: 1.05; }
+    .modal p { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+    .modal .icon { font-size: 54px; line-height: 1; }
+    .modal .btn { width: 100%; height: 52px; font-size: 16px; margin-top: 8px; }
+    #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+    .tabs-top { display: flex; gap: 6px; background: rgba(255,255,255,.14); padding: 5px; border-radius: 14px; margin-bottom: 14px; }
+    .tabs-top a { flex: 1; text-align: center; color: #fff; text-decoration: none; font-weight: 800; font-size: 14px; padding: 10px; border-radius: 10px; opacity: .85; }
+    .tabs-top a.active { background: #fff; color: var(--purple); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="demoBanner" class="demo-banner hidden">Modo demo: los giros se guardan solo en este navegador.</div>
+  <div class="r-wrap">
+    <nav class="tabs-top"><a href="index.html">Registro de voucher</a><a class="active" href="ruleta.html">Ruleta Gira y Gana</a></nav>
+
+    <section class="board">
+      <div class="b-head">
+        <div class="logo"><svg class="rays" viewBox="0 0 34 18"><g stroke="#e8262b" stroke-width="4.5" stroke-linecap="round"><line x1="6" y1="14" x2="2" y2="7"/><line x1="17" y1="11" x2="17" y2="2"/><line x1="28" y1="14" x2="32" y2="7"/></g></svg>Afix</div>
+        <div class="b-title">Tu suerte con<br><span class="coral">adhesivos Afix</span><br>para PVC</div>
+      </div>
+      <div class="banner">¡Gira la ruleta y gana premios al instante!</div>
+
+      <div class="stage">
+        <svg class="pointer" viewBox="0 0 46 56"><path d="M4 4 H42 V22 L23 52 L4 22 Z" fill="#e8262b" stroke="#a5161a" stroke-width="2" stroke-linejoin="round"/><path d="M8 7 H38 V12 H8Z" fill="#ff6b63"/></svg>
+        <svg id="wheel" viewBox="-250 -250 500 500" aria-label="Ruleta de premios"></svg>
+        <div class="hub"><div>
+          <div class="logo"><svg class="rays" viewBox="0 0 34 18"><g stroke="#e8262b" stroke-width="4.5" stroke-linecap="round"><line x1="6" y1="14" x2="2" y2="7"/><line x1="17" y1="11" x2="17" y2="2"/><line x1="28" y1="14" x2="32" y2="7"/></g></svg>Afix</div>
+          <div class="gg">GIRA Y GANA</div>
+          <svg class="swoosh" viewBox="0 0 100 8" preserveAspectRatio="none"><path d="M2 6 Q50 -2 98 5" stroke="#e8262b" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+        </div></div>
+      </div>
+
+      <button class="spin-btn" id="spinBtn">¡GIRAR!</button>
+      <div class="who" id="who"></div>
+      <div class="pending hidden" id="pending"></div>
+    </section>
+  </div>
+
+  <div class="modal hidden" id="modal"><div class="box">
+    <div class="icon" id="mIcon">🎉</div>
+    <div class="tag" id="mTag">RESULTADO</div>
+    <h2 id="mTitle">¡Ganaste!</h2>
+    <p id="mText"></p>
+    <a class="btn btn-primary" id="mRegister" href="index.html">Registrar voucher con este premio</a>
+    <button class="btn btn-ghost" id="mClose">Cerrar</button>
+  </div></div>
+  <canvas id="confetti"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="config.js?v=13"></script>
+  <script src="api.js?v=13"></script>
+  <script>
+  (function () {
+    const CFG = window.APP_CONFIG;
+    const SEG = CFG.RULETA || [];
+    const N = SEG.length;
+    const $ = (id) => document.getElementById(id);
+    const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
+    if (API.isDemo) $("demoBanner").classList.remove("hidden");
+
+    const COLORS = { blanco: ["#f2eef5", "#5a1281"], morado: ["#6a1596", "#ffffff"], morado2: ["#5b1184", "#ffffff"], lila: ["#cdb3e0", "#4a0f6c"] };
+    const NS = "http://www.w3.org/2000/svg";
+    const R = 232, Rin = 74;
+
+    // ---------- Dibujo de la ruleta ----------
+    const pen = (fill) => `<g><rect x="-62" y="-6" width="104" height="12" rx="6" fill="#efe2c4" stroke="#b9a37a" stroke-width="1"/><path d="M42 -6 L58 0 L42 6 Z" fill="#d2c3a2"/><rect x="-66" y="-7" width="16" height="14" rx="3" fill="${fill === "#ffffff" ? "#e0c6f0" : "#8a2bbd"}"/><rect x="-40" y="-13" width="8" height="10" rx="2" fill="#8a2bbd"/><text x="2" y="4" font-size="8" font-weight="900" text-anchor="middle" fill="#5a1281">Afix</text></g>`;
+    const refresh = `<g fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"><path d="M-20 -6 A22 22 0 0 1 18 -12"/><path d="M20 6 A22 22 0 0 1 -18 12"/></g><path d="M14 -26 L26 -10 L8 -8 Z" fill="#fff"/><path d="M-14 26 L-26 10 L-8 8 Z" fill="#fff"/>`;
+
+    function arc(a0, a1, r0, r1) {
+      const p = (a, r) => [Math.sin(a) * r, -Math.cos(a) * r];
+      const [x0, y0] = p(a0, r1), [x1, y1] = p(a1, r1), [x2, y2] = p(a1, r0), [x3, y3] = p(a0, r0);
+      return `M${x0} ${y0} A${r1} ${r1} 0 0 1 ${x1} ${y1} L${x2} ${y2} A${r0} ${r0} 0 0 0 ${x3} ${y3} Z`;
+    }
+    function draw() {
+      const w = $("wheel");
+      let g = `<circle r="248" fill="#5a1281"/><circle r="${R + 6}" fill="#fff"/>`;
+      SEG.forEach((s, i) => {
+        const a0 = (i / N) * 2 * Math.PI, a1 = ((i + 1) / N) * 2 * Math.PI, mid = ((i + .5) / N) * 360;
+        const [bg, fg] = COLORS[s.estilo] || COLORS.morado;
+        g += `<path d="${arc(a0, a1, Rin, R)}" fill="${bg}" stroke="#fff" stroke-width="5"/>`;
+        // Contenido del segmento, girado hacia su centro
+        let inner = "";
+        const T = (y, txt, fs, w = 900) => `<text y="${y}" font-size="${fs}" font-weight="${w}" fill="${fg}" text-anchor="middle">${txt}</text>`;
+        if (s.tipo === "especial") {
+          inner = T(-198, "PREMIO", 24) + T(-174, "ESPECIAL", 24) + T(-148, "UN LAPICERO AFIX +", 12, 800) + T(-132, "ADHESIVO AFIX", 12, 800);
+        } else if (s.tipo === "ninguno") {
+          inner = `<g transform="translate(0,-192) scale(.72)">${refresh}</g>` + T(-148, "SIGUE", 17) + T(-128, "INTENTANDO", 17);
+        } else if (s.tipo === "adhesivo") {
+          inner = T(-198, "GANASTE", 17) + T(-178, "UN ADHESIVO", 17) + T(-158, "AFIX", 17) +
+                  `<g transform="translate(0,-132)"><rect x="-11" y="-9" width="22" height="22" rx="4" fill="${fg}" opacity=".9"/><rect x="-6" y="-15" width="12" height="7" rx="2" fill="${fg}"/></g>`;
+        } else {
+          inner = `<g transform="translate(0,-205) rotate(-12) scale(.62)">${pen(bg)}</g>` + T(-172, "GANASTE", 16) + T(-153, "UN LAPICERO", 16) + T(-134, "AFIX", 16);
+        }
+        g += `<g transform="rotate(${mid})" font-family="Arial, Helvetica, sans-serif">${inner}</g>`;
+      });
+      // Remaches decorativos
+      for (let i = 0; i < 24; i++) { const a = (i / 24) * 2 * Math.PI; g += `<circle cx="${Math.sin(a) * 241}" cy="${-Math.cos(a) * 241}" r="3.2" fill="#e9d7f5"/>`; }
+      w.innerHTML = g;
+    }
+    draw();
+
+    // ---------- Tienda / promotora (para el registro del giro) ----------
+    const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? { tienda: t, promotoras: [] } : t));
+    function renderWho() {
+      const t = store.get("v_tienda"), p = store.get("v_promotora");
+      const el = $("who");
+      el.innerHTML = `<span>Tienda:</span><select id="wTienda"><option value="">Elige tu tienda…</option>${TIENDAS.map((x) => `<option${x.tienda === t ? " selected" : ""}>${x.tienda.replace(/</g, "&lt;")}</option>`).join("")}</select>${p ? `<span>· ${p.replace(/</g, "&lt;")}</span>` : ""}`;
+      $("wTienda").onchange = (e) => {
+        const x = TIENDAS.find((y) => y.tienda === e.target.value);
+        store.set("v_tienda", e.target.value);
+        if (x && x.promotoras.length === 1) store.set("v_promotora", x.promotoras[0]);
+        renderWho();
+      };
+    }
+    renderWho();
+
+    // ---------- Giro pendiente (1 giro por voucher) ----------
+    const LBL = { lapicero: "Ganaste un lapicero Afix", adhesivo: "Ganaste un adhesivo Afix", especial: "Premio especial: lapicero + adhesivo Afix", ninguno: "Sigue intentando" };
+    function pending() { try { return JSON.parse(store.get("ruleta_pendiente") || "null"); } catch { return null; } }
+    function renderPending() {
+      const pd = pending(), box = $("pending");
+      if (!pd) { box.classList.add("hidden"); $("spinBtn").disabled = false; return; }
+      box.classList.remove("hidden");
+      $("spinBtn").disabled = true;
+      box.innerHTML = `Último giro: <b>${LBL[pd.tipo]}</b>.<br><a href="index.html?giro=${pd.id}&premio=${pd.tipo}">Registrar el voucher de este cliente →</a><br><button id="discard">Descartar este giro y girar de nuevo</button>`;
+      $("discard").onclick = () => { if (confirm("¿Descartar el giro anterior? Quedará registrado como descartado.")) { store.del("ruleta_pendiente"); renderPending(); } };
+    }
+    renderPending();
+
+    // ---------- Giro ----------
+    let rot = 0, spinning = false;
+    function pick() {
+      const total = SEG.reduce((a, s) => a + (Number(s.peso) || 0), 0) || N;
+      const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+      let r = (buf[0] / 4294967296) * total;
+      for (let i = 0; i < N; i++) { r -= Number(SEG[i].peso) || 0; if (r < 0) return i; }
+      return N - 1;
+    }
+    async function spin() {
+      if (spinning || $("spinBtn").disabled) return;
+      if (!store.get("v_tienda")) { alert("Primero elige tu tienda debajo del botón."); return; }
+      spinning = true; $("spinBtn").disabled = true; $("spinBtn").textContent = "Girando…";
+      const i = pick();
+      const segAng = 360 / N, center = (i + .5) * segAng;
+      const jitter = (Math.random() - .5) * segAng * .7;
+      const target = (360 - center - jitter) % 360;
+      const base = rot - (rot % 360);
+      rot = base + 360 * 7 + target;
+      $("wheel").style.transform = `rotate(${rot}deg)`;
+      const s = SEG[i];
+      const idP = API.logSpin({ tienda: store.get("v_tienda"), promotora: store.get("v_promotora"), resultado: s.tipo });
+      setTimeout(async () => {
+        const id = await idP;
+        store.set("ruleta_pendiente", JSON.stringify({ id, tipo: s.tipo, t: Date.now() }));
+        spinning = false; $("spinBtn").textContent = "¡GIRAR!";
+        showResult(s, id);
+        renderPending();
+      }, 5600);
+    }
+    $("spinBtn").onclick = spin;
+    $("wheel").onclick = spin;
+
+    function showResult(s, id) {
+      const win = s.tipo !== "ninguno";
+      $("mIcon").textContent = win ? (s.tipo === "especial" ? "🏆" : "🎉") : "🔄";
+      $("mTag").textContent = s.tipo === "especial" ? "PREMIO ESPECIAL" : win ? "¡FELICIDADES!" : "ESTA VEZ NO";
+      $("mTitle").textContent = win ? (s.tipo === "especial" ? "¡Lapicero + adhesivo Afix!" : s.tipo === "adhesivo" ? "¡Un adhesivo Afix!" : "¡Un lapicero Afix!") : "¡Sigue intentando!";
+      $("mText").textContent = win ? "Entrega el premio y registra el voucher del cliente." : "Gracias por comprar Afix. Registra el voucher igual para que la compra cuente.";
+      $("mRegister").href = `index.html?giro=${id}&premio=${s.tipo}`;
+      $("modal").classList.remove("hidden");
+      if (win) confetti(s.tipo === "especial" ? 260 : 150);
+    }
+    $("mClose").onclick = () => $("modal").classList.add("hidden");
+
+    // ---------- Confeti ----------
+    function confetti(n) {
+      const c = $("confetti"), ctx = c.getContext("2d");
+      c.width = innerWidth; c.height = innerHeight;
+      const cols = ["#74119e", "#c93f3f", "#ffd23f", "#ffffff", "#cdb3e0", "#ff5a4f"];
+      const P = Array.from({ length: n }, () => ({ x: c.width / 2 + (Math.random() - .5) * 120, y: c.height * .45, vx: (Math.random() - .5) * 14, vy: -Math.random() * 16 - 6, s: 5 + Math.random() * 7, r: Math.random() * 6, vr: (Math.random() - .5) * .4, col: cols[(Math.random() * cols.length) | 0] }));
+      let f = 0;
+      (function tick() {
+        ctx.clearRect(0, 0, c.width, c.height);
+        P.forEach((p) => { p.vy += .45; p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.col; ctx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .66); ctx.restore(); });
+        if (++f < 150) requestAnimationFrame(tick); else ctx.clearRect(0, 0, c.width, c.height);
+      })();
+    }
+  })();
+  </script>
+</body>
+</html>

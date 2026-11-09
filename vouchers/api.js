@@ -104,6 +104,32 @@
       if (ins.error) throw new Error("No se pudo guardar el registro: " + ins.error.message);
     },
 
+    // Registra cada giro de la ruleta (auditoría). Devuelve el id del giro.
+    async logSpin(giro) {
+      const id = uuid();
+      const row = { id, ...giro, dispositivo: navigator.userAgent.slice(0, 180) };
+      if (CFG.DEMO) {
+        try {
+          const g = JSON.parse(localStorage.getItem("giros_demo") || "[]");
+          g.unshift({ ...row, created_at: new Date().toISOString() });
+          localStorage.setItem("giros_demo", JSON.stringify(g.slice(0, 2000)));
+        } catch {}
+        return id;
+      }
+      try {
+        const { error } = await client().from("ruleta_giros").insert(row);
+        if (error) console.warn("No se pudo registrar el giro:", error.message);
+      } catch (e) { console.warn(e); }
+      return id;
+    },
+
+    async listSpins() {
+      if (CFG.DEMO) { try { return JSON.parse(localStorage.getItem("giros_demo") || "[]"); } catch { return []; } }
+      const { data, error } = await client().from("ruleta_giros").select("*").order("created_at", { ascending: false }).limit(10000);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
     async getSession() {
       if (CFG.DEMO) return sessionStorage.getItem("demo_admin") ? { user: { email: "demo@admin" } } : null;
       const { data } = await client().auth.getSession();

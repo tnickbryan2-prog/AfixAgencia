@@ -36,6 +36,7 @@
 
   const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? { tienda: t, promotoras: [] } : t));
 
+  let spins = [];
   let el = null, rows = [], cfg = { meta_promotora_mes: 0, dias_activacion: [1, 2, 3, 4, 5, 6, 0] };
   let state = { ym: todayKey().slice(0, 7), day: todayKey(), showCfg: false, cfgLoaded: false };
 
@@ -137,6 +138,29 @@
       vals: premioNames.map((pz) => inMonth.filter((r) => r.tienda === t.tienda && r.premio === pz).length),
     }));
 
+    // Ruleta: giros del mes vs vouchers registrados con giro
+    const RUL = CFG.RULETA || [];
+    const spinsM = spins.filter((g) => keyOf(g.created_at).startsWith(state.ym));
+    const usados = new Set(inMonth.map((r) => r.giro_id).filter(Boolean));
+    const tipos = [...new Set(RUL.map((x) => x.tipo))];
+    const pesoTot = RUL.reduce((a, x) => a + (Number(x.peso) || 0), 0) || 1;
+    const ruleta = {
+      giros: spinsM.length,
+      conRegistro: spinsM.filter((g) => usados.has(g.id)).length,
+      vouchersConGiro: inMonth.filter((r) => r.giro_id).length,
+      dist: tipos.map((t) => ({
+        tipo: t,
+        n: spinsM.filter((g) => g.resultado === t).length,
+        esperado: RUL.filter((x) => x.tipo === t).reduce((a, x) => a + (Number(x.peso) || 0), 0) / pesoTot,
+      })),
+      porPromo: Object.entries(spinsM.reduce((acc, g) => {
+        const k = g.promotora || "Sin promotora";
+        acc[k] = acc[k] || { giros: 0, sinReg: 0, esp: 0 };
+        acc[k].giros++; if (!usados.has(g.id)) acc[k].sinReg++; if (g.resultado === "especial") acc[k].esp++;
+        return acc;
+      }, {})).sort((a, b) => b[1].giros - a[1].giros),
+    };
+
     // Horas y días de la semana (mes)
     const hours = {};
     for (let h = 7; h <= 22; h++) hours[h] = 0;
@@ -169,7 +193,7 @@
     const nPromos = promos.length || 1;
     return {
       today, days, actDays, elapsedAct, remainingAfterToday, isCurrent, total, prevSame, avg, proj, unique, dupPhones,
-      perDay, best, dayRows, dayHours, promos, tiendas, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
+      perDay, best, dayRows, dayHours, promos, tiendas, ruleta, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
       metaEquipo: meta * nPromos,
       metaDiariaEquipo: meta && actDays.length ? (meta * nPromos) / actDays.length : 0,
       coberturaHoy: tiendas.filter((t) => t.hoy > 0 && TIENDAS.some((x) => x.tienda === t.tienda)).length,
@@ -346,6 +370,20 @@
         </table></div>
       </div>
 
+      ${(CFG.RULETA || []).length ? `<div class="card panel">
+        <div class="panel-head"><h3>Ruleta Gira y Gana · ${esc(ymLabel(state.ym))}</h3><span class="muted">Control de giros: cada voucher debería tener un giro</span></div>
+        <div class="prize-cards">
+          <div class="prize"><div class="lbl">Giros realizados</div><div class="val">${fmtN(m.ruleta.giros)}</div><div class="sub">${m.ruleta.vouchersConGiro} vouchers registrados con ruleta</div></div>
+          <div class="prize"><div class="lbl">Giros sin voucher</div><div class="val" style="color:${m.ruleta.giros - m.ruleta.conRegistro > 0 ? "var(--coral)" : "var(--purple)"}">${fmtN(m.ruleta.giros - m.ruleta.conRegistro)}</div><div class="sub">Descartados o aún sin registrar</div></div>
+          ${m.ruleta.dist.map((d) => `<div class="prize"><div class="lbl">${esc({lapicero:"Lapicero",adhesivo:"Adhesivo",especial:"Premio especial",ninguno:"Sigue intentando"}[d.tipo] || d.tipo)}</div><div class="val">${d.n}</div>
+            <div class="prog"><div style="width:${m.ruleta.giros ? (d.n / m.ruleta.giros) * 100 : 0}%"></div></div>
+            <div class="sub">${m.ruleta.giros ? pct(d.n / m.ruleta.giros) : "—"} real · ${pct(d.esperado)} esperado</div></div>`).join("")}
+        </div>
+        ${m.ruleta.porPromo.length ? `<div class="table-wrap" style="margin-top:14px"><table class="ind-table"><thead><tr><th>Promotora</th><th class="num">Giros</th><th class="num">Sin voucher</th><th class="num">Premios especiales</th></tr></thead><tbody>
+          ${m.ruleta.porPromo.map(([p, x]) => `<tr><td><strong>${esc(p)}</strong></td><td class="num">${x.giros}</td><td class="num">${x.sinReg ? `<span class="pill ${x.sinReg >= 3 ? "bad" : "warn"}">${x.sinReg}</span>` : '<span class="pill ok">0</span>'}</td><td class="num">${x.esp}</td></tr>`).join("")}
+        </tbody></table></div>` : ""}
+      </div>` : ""}
+
       <div class="two-col">
         <div class="card panel"><div class="panel-head"><h3>Horas pico</h3><span class="muted">Vouchers del mes por hora</span></div>
           ${columnChart(Object.keys(m.hours).map((h) => h + "h"), Object.values(m.hours))}
@@ -427,6 +465,7 @@
         try { cfg = await API.getPanelConfig(); } catch {}
         state.cfgLoaded = true;
       }
+      try { spins = API.listSpins ? await API.listSpins() : []; } catch { spins = []; }
       render();
     },
     render,
