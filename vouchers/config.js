@@ -44,7 +44,7 @@ window.APP_CONFIG = {
   // Relevamiento de precios de competencia (fines de semana)
   PRECIOS: {
     // Marcas a relevar. "Afix" se incluye para comparar contra el precio propio en góndola.
-    MARCAS: ["Afix"],
+    MARCAS: ["Afix", "Oatey"],
     // Tipos de promoción que se pueden marcar por SKU
     PROMOS: ["2x1", "3x2", "3x1", "% descuento", "Precio especial", "Regalo / combo", "Otra"],
     SKUS: [
