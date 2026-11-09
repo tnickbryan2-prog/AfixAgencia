@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bandeja de solicitudes · Agencia Afix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap wide">
+  <div class="top">
+    <div class="brand"><img src="afix-logo.png" alt="Afix"></div>
+    <div class="actions" style="margin:0">
+      <a class="back" href="../">← Portal</a>
+      <button id="logout" type="button" hidden>Cerrar sesión</button>
+    </div>
+  </div>
+  <div class="eyebrow">Solo coordinación</div>
+  <h1>Bandeja de <span>solicitudes</span></h1>
+  <p class="sub">Revisa lo que piden gerencia y las áreas, decide y envía la solicitud formal al equipo.</p>
+
+  <form id="login" class="card" style="max-width:420px" hidden>
+    <label for="em">Correo</label><input id="em" type="email" autocomplete="username" required>
+    <div style="height:12px"></div>
+    <label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" required>
+    <div class="actions"><button class="primary" type="submit">Entrar</button></div>
+    <div class="msg" id="lmsg"></div>
+  </form>
+
+  <div id="app" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="filters">
+      <select id="fEstado" aria-label="Filtrar por estado"></select>
+      <input id="fTxt" type="search" placeholder="Buscar por pedido, área o persona" aria-label="Buscar">
+      <button id="reload" type="button">Actualizar</button>
+    </div>
+    <div class="layout">
+      <div class="list" id="list"></div>
+      <div class="card detail" id="detail"><div class="empty">Elige una solicitud para ver el detalle.</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="../vouchers/config.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.APP_CONFIG, S = window.SOLICITUDES_CONFIG;
+  const $ = (id) => document.getElementById(id);
+  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  let rows = [], selId = null;
+
+  const el = (tag, props = {}, kids = []) => { const n = document.createElement(tag); Object.entries(props).forEach(([k, v]) => { if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v; else n.setAttribute(k, v); }); kids.forEach(k => n.append(k)); return n; };
+  const fdt = (s) => s ? new Date(s).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  const fd = (s) => s ? new Date(s + 'T12:00:00').toLocaleDateString('es-PE', { dateStyle: 'medium' }) : 'Sin fecha';
+
+  $('fEstado').innerHTML = '<option value="">Todas (activas)</option><option value="*">Todas, incluidas cerradas</option>' + S.ESTADOS.map(e => `<option>${e}</option>`).join('');
+
+  async function start() {
+    const { data } = await sb.auth.getSession();
+    if (!data.session) { $('login').hidden = false; $('app').hidden = true; $('logout').hidden = true; return; }
+    $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false;
+    await load();
+  }
+
+  $('login').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value });
+    if (error) { $('lmsg').className = 'msg err'; $('lmsg').textContent = 'Correo o contraseña incorrectos.'; return; }
+    start();
+  });
+  $('logout').onclick = async () => { await sb.auth.signOut(); start(); };
+  $('reload').onclick = load;
+  $('fEstado').onchange = render; $('fTxt').oninput = render;
+
+  async function load() {
+    const { data, error } = await sb.from('solicitudes').select('*').order('created_at', { ascending: false }).limit(1000);
+    if (error) { $('list').innerHTML = ''; $('list').append(el('div', { class: 'msg err', text: 'No se pudo cargar: ' + error.message })); $('list').firstChild.style.display = 'block'; return; }
+    rows = data || [];
+    if (!rows.length && data) { /* puede ser que el usuario no esté en admin_emails */ }
+    render();
+  }
+
+  function render() {
+    const k = (st) => rows.filter(r => r.estado === st).length;
+    $('kpis').innerHTML = '';
+    [['Nuevas', k('Recibida')], ['En evaluación', k('En evaluación')], ['Formalizadas', k('Formalizada')], ['En curso', k('En curso')], ['Entregadas', k('Entregada')]].forEach(([t, v]) => $('kpis').append(el('div', { class: 'kpi' }, [el('b', { text: String(v) }), el('span', { text: t })])));
+    const fe = $('fEstado').value, q = $('fTxt').value.trim().toLowerCase();
+    const list = rows.filter(r => (fe === '*' ? true : fe ? r.estado === fe : !['Entregada', 'Rechazada'].includes(r.estado)))
+      .filter(r => !q || [r.titulo, r.area, r.solicitante, r.tipo].join(' ').toLowerCase().includes(q));
+    const L = $('list'); L.innerHTML = '';
+    if (!list.length) { L.append(el('div', { class: 'card empty', text: rows.length ? 'No hay solicitudes con ese filtro.' : 'Aún no hay solicitudes.' })); }
+    list.forEach(r => {
+      const b = el('button', { class: 'item' + (r.id === selId ? ' sel' : ''), type: 'button' }, [
+        el('h4', { text: r.titulo }),
+        el('div', { class: 'meta' }, [el('span', { class: 'pill p-' + r.prioridad, text: r.prioridad }), el('span', { class: 's-' + r.estado, text: r.estado }), document.createTextNode(' · ' + r.area + ' · ' + r.solicitante + ' · para ' + fd(r.fecha_requerida))]),
+      ]);
+      b.onclick = () => { selId = r.id; render(); };
+      L.append(b);
+    });
+    renderDetail(rows.find(r => r.id === selId));
+  }
+
+  function formalText(r) {
+    return [
+      'SOLICITUD FORMAL AL EQUIPO · Agencia Afix',
+      '',
+      `Pedido: ${r.titulo}`,
+      `Tipo: ${r.tipo}`,
+      `Solicita: ${r.solicitante} (${r.area})`,
+      `Para: ${r.fecha_requerida ? fd(r.fecha_requerida) : 'sin fecha definida'}`,
+      `Prioridad: ${r.prioridad}`,
+      `Dónde se usará: ${r.canal || 'por definir'}`,
+      '',
+      'Detalle del solicitante:',
+      r.detalle,
+      '',
+      'Indicaciones del coordinador:',
+      r.notas_coordinador || '(sin indicaciones adicionales)',
+      '',
+      `Aprobado por: ${S.COORDINADOR}`,
+      'Coordinador "Artecola Perú": conviértelo en tareas con responsable (Lucía, Bruno, Vale, Sofía) y fecha, y crea las tarjetas en Trello.',
+    ].join('\n');
+  }
+
+  function renderDetail(r) {
+    const D = $('detail'); D.innerHTML = '';
+    if (!r) { D.append(el('div', { class: 'empty', text: 'Elige una solicitud para ver el detalle.' })); return; }
+    D.append(el('h3', { text: r.titulo }));
+    D.append(el('div', { class: 'meta' }, [el('span', { class: 'pill p-' + r.prioridad, text: r.prioridad }), el('span', { class: 's-' + r.estado, text: r.estado }), document.createTextNode(' · recibida ' + fdt(r.created_at))]));
+    const dl = el('dl');
+    [['Solicita', r.solicitante], ['Área', r.area], ['Correo', r.correo], ['Tipo', r.tipo], ['Para', fd(r.fecha_requerida)], ['Dónde se usará', r.canal || '-'], ['Detalle', r.detalle]].forEach(([a, b]) => { dl.append(el('dt', { text: a }), el('dd', { text: b })); });
+    D.append(dl);
+
+    const est = el('select', { id: 'dEstado', 'aria-label': 'Estado' }); est.innerHTML = S.ESTADOS.map(e => `<option${e === r.estado ? ' selected' : ''}>${e}</option>`).join('');
+    const notas = el('textarea', { id: 'dNotas', placeholder: 'Indicaciones para el equipo: enfoque, piezas, responsables sugeridos, restricciones…', maxlength: '4000' }); notas.value = r.notas_coordinador || '';
+    D.append(el('label', { for: 'dEstado', text: 'Estado' }), est, el('div', { style: 'height:12px' }), el('label', { for: 'dNotas', text: 'Indicaciones del coordinador' }), notas);
+
+    const msg = el('div', { class: 'msg', role: 'status' });
+    const save = el('button', { type: 'button', text: 'Guardar' });
+    const formal = el('button', { class: 'primary', type: 'button', text: 'Enviar solicitud formal al equipo' });
+    const reject = el('button', { type: 'button', text: 'Rechazar' });
+    D.append(el('div', { class: 'actions' }, [formal, save, reject]), msg);
+    const out = el('div'); D.append(out);
+
+    async function upd(patch, okText) {
+      patch.updated_at = new Date().toISOString();
+      const { error } = await sb.from('solicitudes').update(patch).eq('id', r.id);
+      if (error) { msg.className = 'msg err'; msg.textContent = 'No se pudo guardar: ' + error.message; return false; }
+      Object.assign(r, patch); msg.className = 'msg ok'; msg.textContent = okText; render(); return true;
+    }
+    save.onclick = () => upd({ estado: est.value, notas_coordinador: notas.value.trim() || null }, 'Guardado.');
+    reject.onclick = async () => {
+      if (await upd({ estado: 'Rechazada', notas_coordinador: notas.value.trim() || null }, 'Marcada como rechazada.')) {
+        location.href = 'mailto:' + encodeURIComponent(r.correo) + '?subject=' + encodeURIComponent('Sobre tu solicitud: ' + r.titulo) + '&body=' + encodeURIComponent(`Hola ${r.solicitante},\n\nRevisamos tu solicitud "${r.titulo}" y por ahora no podremos tomarla.\n\n${notas.value.trim()}\n\nSaludos,\n${S.COORDINADOR}`);
+      }
+    };
+    formal.onclick = () => upd({ estado: 'Formalizada', notas_coordinador: notas.value.trim() || null, formalizada_at: new Date().toISOString() }, 'Formalizada.');
+    if (r.formalizada_at) {
+      const txt = formalText(r);
+      const copy = el('button', { class: 'coral', type: 'button', text: 'Copiar solicitud formal' });
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(txt); copy.textContent = 'Copiado ✓'; } catch (e) { copy.textContent = 'Selecciona y copia el texto'; } };
+      const notify = el('a', { class: 'btn', href: 'mailto:' + encodeURIComponent(r.correo) + '?subject=' + encodeURIComponent('Tu solicitud fue asignada al equipo: ' + r.titulo) + '&body=' + encodeURIComponent(`Hola ${r.solicitante},\n\nTu solicitud "${r.titulo}" fue aprobada y asignada al equipo de Marketing digital.${r.fecha_requerida ? '\nFecha objetivo: ' + fd(r.fecha_requerida) + '.' : ''}\n\nTe escribiremos con avances o si necesitamos más información.\n\nSaludos,\n${S.COORDINADOR}`), text: 'Avisar al solicitante por correo' });
+      out.append(el('div', { style: 'height:14px' }), el('div', { class: 'note', text: 'Solicitud formal (' + fdt(r.formalizada_at) + '). Cópiala y pégala en el proyecto del Coordinador:' }), el('pre', { class: 'formal', text: txt }), el('div', { class: 'actions' }, [copy, notify]));
+    }
+  }
+
+  sb.auth.onAuthStateChange(() => {});
+  start();
+})();
+</script>
+</body>
+</html>

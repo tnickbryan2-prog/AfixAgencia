@@ -1,0 +1,72 @@
+/* Solicitudes de trabajo · mismo tema oscuro del portal Agencia Afix */
+:root{
+  --bg:#110c17;--panel:#1c1524;--panel2:#231a2e;--ink:#f4eff8;--muted:#b4a8c2;
+  --purple:#b763e0;--purple-d:#74119e;--coral:#ef7468;--line:#2f2540;
+  --ok:#6cc792;--warn:#e5b450;--bad:#ef7d7d;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Sans 3","Segoe UI",Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:860px;margin:0 auto;padding:28px 16px 56px}
+.wide{max-width:1240px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.brand{display:inline-flex;background:#fff;border-radius:12px;padding:8px 14px}
+.brand img{display:block;height:36px;width:auto}
+.back{color:var(--muted);text-decoration:none;font-family:var(--display);font-weight:600;font-size:13px}
+.back:hover{color:var(--ink)}
+.eyebrow{font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--coral);margin-bottom:6px}
+h1{font-family:var(--display);font-weight:800;font-size:30px;line-height:1.1;margin:0 0 8px;text-wrap:balance}
+h1 span{color:var(--purple)}
+.sub{color:var(--muted);margin:0 0 24px;max-width:64ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.full{grid-column:1 / -1}
+label{display:block;font-family:var(--display);font-weight:600;font-size:13px;margin-bottom:6px}
+label small{font-family:var(--body);font-weight:400;color:var(--muted)}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:130px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--purple);outline-offset:1px;border-color:var(--purple)}
+button,.btn{font-family:var(--display);font-weight:700;font-size:14px;border-radius:999px;padding:11px 20px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+button:hover,.btn:hover{border-color:var(--purple)}
+button:focus-visible,.btn:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+.primary{background:var(--purple-d);border-color:var(--purple-d);color:#fff}
+.primary:hover{background:#8a1fb8}
+.coral{background:var(--coral);border-color:var(--coral);color:#1b0f12}
+button[disabled]{opacity:.55;cursor:wait}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;align-items:center}
+.note{font-size:13px;color:var(--muted)}
+.msg{margin-top:16px;padding:14px 16px;border-radius:12px;font-size:14.5px;display:none}
+.msg.ok{display:block;background:#1d3226;border:1px solid #2f5a3d}
+.msg.err{display:block;background:#36201f;border:1px solid #5a2f2c}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+/* Admin */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.kpi b{display:block;font-family:var(--display);font-size:26px}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filters select,.filters input{width:auto;min-width:180px}
+.layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;width:100%;display:block;font-family:var(--body);font-weight:400}
+.item:hover,.item.sel{border-color:var(--purple)}
+.item h4{margin:0 0 4px;font-family:var(--display);font-size:15px}
+.meta{font-size:12.5px;color:var(--muted)}
+.pill{display:inline-block;font-family:var(--display);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-right:6px;border:1px solid var(--line)}
+.p-Urgente{background:#4a1f1d;color:#ffb3ab;border-color:#6a2c29}
+.p-Alta{background:#3b2b12;color:var(--warn);border-color:#5a431b}
+.s-Recibida{color:var(--coral)}
+.s-Formalizada,.s-En\ curso{color:var(--purple)}
+.s-Entregada{color:var(--ok)}
+.s-Rechazada{color:var(--muted)}
+.detail h3{font-family:var(--display);margin:0 0 6px;font-size:19px}
+.detail dl{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;margin:14px 0;font-size:14px}
+.detail dt{color:var(--muted)}
+.detail dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+pre.formal{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace;max-height:340px;overflow:auto}
+.empty{color:var(--muted);padding:24px;text-align:center}
+@media (max-width:900px){.layout{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:620px){.grid{grid-template-columns:1fr}h1{font-size:24px}.detail dl{grid-template-columns:1fr}}
