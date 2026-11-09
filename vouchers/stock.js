@@ -12,7 +12,7 @@
   const fDate = (k) => { const [y, m, d] = String(k).slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
 
   const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? { tienda: t, promotoras: [] } : t));
-  const PROMOS_CFG = [...new Set(TIENDAS.flatMap((t) => t.promotoras || []))];
+  const PROMOS_CFG = CFG.PROMOTORAS && CFG.PROMOTORAS.length ? CFG.PROMOTORAS : [...new Set(TIENDAS.flatMap((t) => t.promotoras || []))];
 
   let el = null, vouchers = [], movs = [], loaded = false, loading = false, err = "";
   let filt = { promotora: "", premio: "" };
@@ -128,7 +128,7 @@
               const c = m.cell[p][z]; ["rec", "dev", "cli", "saldo"].forEach((k) => (rowT[k] += c[k]));
               return `<td class="num ${cellClass(c)}"><div class="saldo">${c.saldo}</div><div class="det">rec. ${c.rec - c.dev} · cli. ${c.cli}</div></td>`;
             }).join("");
-            const tiendasP = TIENDAS.filter((t) => (t.promotoras || []).includes(p)).map((t) => t.tienda.replace(/^Sodimac\s+/i, ""));
+            const tiendasP = [...new Set(vouchers.filter((v) => v.promotora === p).map((v) => v.tienda.replace(/^Sodimac\s+/i, "")))];
             return `<tr><td><strong>${esc(p)}</strong>${tiendasP.length ? `<div class="muted small">${esc(tiendasP.join(" · "))}</div>` : ""}</td>${cells}
               <td class="num ${rowT.saldo < 0 ? "neg" : ""}"><div class="saldo">${rowT.saldo}</div><div class="det">rec. ${rowT.rec - rowT.dev} · cli. ${rowT.cli}</div></td></tr>`;
           }).join("")}

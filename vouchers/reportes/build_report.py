@@ -96,7 +96,7 @@ def compute(data):
         if cumpl is not None:
             estado = "Cumplió" if cumpl >= 1 else ("En riesgo" if cumpl >= .8 else "Bajo meta")
         prom_rows.append(dict(
-            promotora=p, tiendas=[t for t, ps_ in TIENDAS.items() if p in ps_] or sorted({v["t"] for v in pw}),
+            promotora=p, tiendas=sorted({v["t"] for v in pw}),
             semana=len(pw), previa=len(pp), var=var(len(pw), len(pp)),
             meta=round(meta_sem) if meta_sem else None, cumpl=cumpl, estado=estado,
             constancia=(dias / len(act_days)) if act_days else None, dias=dias,
@@ -110,7 +110,7 @@ def compute(data):
     for t in tiendas:
         tw = [v for v in W if v["t"] == t]; tp = [v for v in P if v["t"] == t]
         tie_rows.append(dict(
-            tienda=t, promotora=", ".join(TIENDAS.get(t, sorted({v["p"] for v in tw}))),
+            tienda=t, promotora=", ".join(sorted({v["p"] for v in tw})) or "—",
             semana=len(tw), previa=len(tp), var=var(len(tw), len(tp)),
             share=(len(tw) / tot) if tot else 0,
             sin_reg=sum(1 for d in act_days if not any(v["f"] == d for v in tw)),

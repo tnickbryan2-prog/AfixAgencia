@@ -44,8 +44,11 @@ window.APP_CONFIG = {
   // Alerta de stock bajo cuando a una promotora le quedan esta cantidad o menos
   STOCK_MINIMO: 5,
 
-  // Tiendas y promotora asignada. Al elegir la tienda, el formulario
-  // muestra solo las promotoras de esa tienda.
+  // Promotoras del proyecto (rotan entre tiendas: en el formulario se eligen libremente)
+  PROMOTORAS: ["Andrea Apaza", "Cecilia Chipana", "Elizabeth Pizarro", "Rosa Rios", "Sheyla Rojas"],
+
+  // Tiendas del proyecto y promotora de referencia (solo informativo para reportes;
+  // en el formulario tienda y promotora se eligen por separado porque rotan).
   // Si una tienda tiene más de una promotora: promotoras: ["Ana", "Luz"]
   TIENDAS: [
     { tienda: "Sodimac Angamos Primavera (Surquillo)",        promotoras: ["Andrea Apaza"] },

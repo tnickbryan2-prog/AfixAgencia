@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#5a1281" />
   <title>Gira y gana · Afix</title>
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
   <style>
     body { background: radial-gradient(1200px 700px at 50% -10%, #8a2bbd 0%, #5a1281 45%, #3a0a55 100%); min-height: 100vh; }
     .r-wrap { max-width: 520px; margin: 0 auto; padding: 14px 14px 40px; color: #fff; }
@@ -27,8 +27,8 @@
     .spin-btn { display: block; width: 100%; margin: 22px 0 0; height: 64px; border: 0; border-radius: 18px; background: linear-gradient(180deg, #ff5a4f, #e2262b); color: #fff; font-size: 24px; font-weight: 900; letter-spacing: .5px; box-shadow: 0 5px 0 #a5161a, 0 10px 24px rgba(0,0,0,.3); cursor: pointer; }
     .spin-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a5161a; }
     .spin-btn[disabled] { opacity: .55; cursor: not-allowed; }
-    .who { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 12px; font-size: 13px; opacity: .92; flex-wrap: wrap; }
-    .who select { height: 38px; border-radius: 10px; border: 0; padding: 0 10px; font-size: 14px; max-width: 100%; color: #1d1424; background: #fff; }
+    .who { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .who select { width: 100%; height: 42px; border-radius: 10px; border: 0; padding: 0 10px; font-size: 14px; max-width: 100%; color: #1d1424; background: #fff; }
     .pending { margin-top: 12px; background: rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; text-align: center; }
     .pending a { color: #fff; font-weight: 800; }
     .pending button { background: none; border: 0; color: #ffd0cc; text-decoration: underline; font-size: 13px; cursor: pointer; margin-top: 4px; }
@@ -86,8 +86,8 @@
   <canvas id="confetti"></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=13"></script>
-  <script src="api.js?v=13"></script>
+  <script src="config.js?v=14"></script>
+  <script src="api.js?v=14"></script>
   <script>
   (function () {
     const CFG = window.APP_CONFIG;
@@ -140,16 +140,15 @@
 
     // ---------- Tienda / promotora (para el registro del giro) ----------
     const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? { tienda: t, promotoras: [] } : t));
+    const PROMOS = (CFG.PROMOTORAS && CFG.PROMOTORAS.length ? CFG.PROMOTORAS : [...new Set(TIENDAS.flatMap((t) => t.promotoras))]).slice().sort((x, y) => x.localeCompare(y, "es"));
+    const hoy = new Date().toISOString().slice(0, 10);
+    const esc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
     function renderWho() {
-      const t = store.get("v_tienda"), p = store.get("v_promotora");
-      const el = $("who");
-      el.innerHTML = `<span>Tienda:</span><select id="wTienda"><option value="">Elige tu tienda…</option>${TIENDAS.map((x) => `<option${x.tienda === t ? " selected" : ""}>${x.tienda.replace(/</g, "&lt;")}</option>`).join("")}</select>${p ? `<span>· ${p.replace(/</g, "&lt;")}</span>` : ""}`;
-      $("wTienda").onchange = (e) => {
-        const x = TIENDAS.find((y) => y.tienda === e.target.value);
-        store.set("v_tienda", e.target.value);
-        if (x && x.promotoras.length === 1) store.set("v_promotora", x.promotoras[0]);
-        renderWho();
-      };
+      const t = store.get("v_tienda_dia") === hoy ? store.get("v_tienda") : "", p = store.get("v_promotora");
+      $("who").innerHTML = `<select id="wTienda" aria-label="Tienda"><option value="">Elige la tienda…</option>${TIENDAS.map((x) => `<option value="${esc(x.tienda)}"${x.tienda === t ? " selected" : ""}>${esc(x.tienda)}</option>`).join("")}</select>
+        <select id="wPromo" aria-label="Promotora"><option value="">Elige tu nombre…</option>${PROMOS.map((x) => `<option value="${esc(x)}"${x === p ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+      $("wTienda").onchange = (e) => { store.set("v_tienda", e.target.value); store.set("v_tienda_dia", hoy); };
+      $("wPromo").onchange = (e) => store.set("v_promotora", e.target.value);
     }
     renderWho();
 
@@ -177,7 +176,7 @@
     }
     async function spin() {
       if (spinning || $("spinBtn").disabled) return;
-      if (!store.get("v_tienda")) { alert("Primero elige tu tienda debajo del botón."); return; }
+      if (!$("wTienda").value || !$("wPromo").value) { alert("Primero elige la tienda y tu nombre debajo del botón."); return; }
       spinning = true; $("spinBtn").disabled = true; $("spinBtn").textContent = "Girando…";
       const i = pick();
       const segAng = 360 / N, center = (i + .5) * segAng;

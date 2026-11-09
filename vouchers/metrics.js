@@ -81,9 +81,10 @@
     const dayHours = dayRows.map((r) => r.created_at).sort();
 
     // Promotoras (asignadas en config + las que aparezcan en datos)
+    // Las promotoras rotan: sus tiendas salen de los registros del mes
     const promoTiendas = {};
-    TIENDAS.forEach((t) => (t.promotoras || []).forEach((p) => (promoTiendas[p] = [...(promoTiendas[p] || []), t.tienda])));
-    inMonth.forEach((r) => { if (!promoTiendas[r.promotora]) promoTiendas[r.promotora] = [...new Set(R.filter((x) => x.promotora === r.promotora).map((x) => x.tienda))]; });
+    (CFG.PROMOTORAS && CFG.PROMOTORAS.length ? CFG.PROMOTORAS : TIENDAS.flatMap((t) => t.promotoras || [])).forEach((p) => (promoTiendas[p] = []));
+    inMonth.forEach((r) => { promoTiendas[r.promotora] = [...new Set([...(promoTiendas[r.promotora] || []), r.tienda])]; });
 
     const meta = Number(cfg.meta_promotora_mes) || 0;
     const last7Start = addDays(state.day, -6);
@@ -114,10 +115,9 @@
     const tiendas = tiendaNames.map((t) => {
       const tr = inMonth.filter((r) => r.tienda === t);
       const daysWith = new Set(tr.map((r) => r._d));
-      const cfgT = TIENDAS.find((x) => x.tienda === t);
       return {
         tienda: t,
-        promotora: cfgT ? cfgT.promotoras.join(", ") : [...new Set(tr.map((r) => r.promotora))].join(", "),
+        promotora: [...new Set(tr.map((r) => r.promotora))].join(", ") || "—",
         hoy: R.filter((r) => r.tienda === t && r._d === state.day).length,
         mes: tr.length,
         share: total ? tr.length / total : 0,

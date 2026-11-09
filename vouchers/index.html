@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#74119E" />
   <title>Registro de Vouchers · Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -74,7 +74,7 @@
         </div>
         <div class="field" id="f-promotora">
           <label for="promotora">Promotora</label>
-          <select id="promotora" disabled><option value="">Primero elige la tienda</option></select>
+          <select id="promotora"><option value="">Selecciona tu nombre…</option></select>
           <div class="err">Selecciona tu nombre.</div>
         </div>
 
@@ -111,7 +111,7 @@
         </div>
 
         <button id="submitBtn" class="btn btn-primary btn-block" type="submit">Registrar voucher</button>
-        <p class="footer-note">Tienda y promotora se recuerdan en este celular.</p>
+        <p class="footer-note">Tu nombre se recuerda en este celular; la tienda, solo durante el día.</p>
       </form>
     </section>
 
@@ -129,8 +129,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=13"></script>
-  <script src="api.js?v=13"></script>
+  <script src="config.js?v=14"></script>
+  <script src="api.js?v=14"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -155,21 +155,11 @@
       const useSelect = TIENDAS.length > 0;
       const promoSel = $("promotora");
 
-      function fillPromotoras(tiendaName, preferred) {
-        const t = TIENDAS.find((x) => x.tienda === tiendaName);
-        const list = t ? t.promotoras : [];
-        if (!t) {
-          promoSel.innerHTML = '<option value="">Primero elige la tienda</option>';
-          promoSel.disabled = true;
-          return;
-        }
-        promoSel.disabled = false;
-        promoSel.innerHTML = (list.length === 1 ? "" : '<option value="">Selecciona tu nombre…</option>') +
-          list.map((p) => `<option value="${escH(p)}">${escH(p)}</option>`).join("");
-        if (list.length === 1) promoSel.value = list[0];
-        else if (preferred && list.includes(preferred)) promoSel.value = preferred;
-        $("f-promotora").classList.remove("invalid");
-      }
+      // Lista completa de promotoras (rotan entre tiendas, no hay asignación fija)
+      const PROMOS = (CFG.PROMOTORAS && CFG.PROMOTORAS.length ? CFG.PROMOTORAS : [...new Set(TIENDAS.flatMap((t) => t.promotoras))]).slice().sort((x, y) => x.localeCompare(y, "es"));
+      const hoy = new Date().toISOString().slice(0, 10);
+      // La tienda se recuerda solo durante el día (por la rotación); la promotora sí se recuerda en su celular
+      function savedTienda() { return store.get("v_tienda_dia") === hoy ? store.get("v_tienda") || "" : ""; }
 
       // Premios: artículos sueltos, premio especial (lapicero + adhesivo) y "sin premio"
       const PREM = CFG.PREMIOS || [];
@@ -202,17 +192,21 @@
       if (useSelect) {
         const sel = $("tienda");
         sel.classList.remove("hidden");
-        sel.innerHTML = '<option value="">Selecciona tu tienda…</option>' +
+        sel.innerHTML = '<option value="">Selecciona la tienda…</option>' +
           TIENDAS.map((t) => `<option value="${escH(t.tienda)}">${escH(t.tienda)}</option>`).join("");
-        const saved = store.get("v_tienda") || "";
-        if (TIENDAS.some((t) => t.tienda === saved)) sel.value = saved;
-        fillPromotoras(sel.value, store.get("v_promotora"));
-        sel.addEventListener("change", () => fillPromotoras(sel.value, null));
+        const st = savedTienda();
+        if (TIENDAS.some((t) => t.tienda === st)) sel.value = st;
       } else {
         $("tiendaText").classList.remove("hidden");
-        $("tiendaText").value = store.get("v_tienda") || "";
+        $("tiendaText").value = savedTienda();
         $("f-tienda").querySelector("label").setAttribute("for", "tiendaText");
-        // Sin lista configurada: promotora escrita a mano
+      }
+      if (PROMOS.length) {
+        promoSel.disabled = false;
+        promoSel.innerHTML = '<option value="">Selecciona tu nombre…</option>' + PROMOS.map((p) => `<option value="${escH(p)}">${escH(p)}</option>`).join("");
+        const sp = store.get("v_promotora");
+        if (PROMOS.includes(sp)) promoSel.value = sp;
+      } else {
         const inp = document.createElement("input");
         inp.id = "promotora"; inp.maxLength = 80; inp.value = store.get("v_promotora") || "";
         promoSel.replaceWith(inp);
@@ -301,6 +295,7 @@
         try {
           await API.submitVoucher(vals, photoFile);
           store.set("v_tienda", vals.tienda);
+          store.set("v_tienda_dia", hoy);
           store.set("v_promotora", vals.promotora);
           try { localStorage.removeItem("ruleta_pendiente"); } catch {}
           giro = null;
