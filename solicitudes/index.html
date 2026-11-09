@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solicitar trabajo · Agencia Afix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><img src="afix-logo.png" alt="Afix"></div>
+    <a class="back" href="../">← Volver al portal</a>
+  </div>
+
+  <div class="eyebrow">Agencia virtual de social media</div>
+  <h1>Solicita un trabajo al <span>equipo</span></h1>
+  <p class="sub">Cuéntanos qué necesitas. La solicitud llega a <b id="coord">Marketing</b>, que la revisa y la asigna formalmente al equipo. Te avisaremos por correo.</p>
+
+  <form id="f" class="card" novalidate>
+    <div class="grid">
+      <div>
+        <label for="solicitante">Tu nombre</label>
+        <input id="solicitante" name="solicitante" autocomplete="name" required maxlength="120">
+      </div>
+      <div>
+        <label for="correo">Tu correo</label>
+        <input id="correo" name="correo" type="email" autocomplete="email" required maxlength="160">
+      </div>
+      <div>
+        <label for="area">Área</label>
+        <select id="area" name="area" required></select>
+      </div>
+      <div>
+        <label for="tipo">Tipo de trabajo</label>
+        <select id="tipo" name="tipo" required></select>
+      </div>
+      <div class="full">
+        <label for="titulo">¿Qué necesitas? <small>en una línea</small></label>
+        <input id="titulo" name="titulo" required maxlength="160" placeholder="Ej.: Post por el aniversario de la planta">
+      </div>
+      <div class="full">
+        <label for="detalle">Detalle <small>objetivo, público, mensaje clave, referencias</small></label>
+        <textarea id="detalle" name="detalle" required maxlength="4000" placeholder="Qué se busca lograr, a quién va dirigido, qué debe decir y cualquier dato o link útil."></textarea>
+      </div>
+      <div>
+        <label for="canal">Dónde se usará <small>opcional</small></label>
+        <input id="canal" name="canal" maxlength="160" placeholder="Ej.: Instagram y LinkedIn / correo interno">
+      </div>
+      <div>
+        <label for="fecha">Fecha en que lo necesitas</label>
+        <input id="fecha" name="fecha" type="date">
+      </div>
+      <div>
+        <label for="prioridad">Prioridad</label>
+        <select id="prioridad" name="prioridad"></select>
+      </div>
+    </div>
+    <div class="hp" aria-hidden="true"><label>No llenar<input id="web" tabindex="-1" autocomplete="off"></label></div>
+    <div class="actions">
+      <button class="primary" id="send" type="submit">Enviar solicitud</button>
+      <span class="note">No incluyas datos personales de clientes ni contraseñas.</span>
+    </div>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="../vouchers/config.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.APP_CONFIG, S = window.SOLICITUDES_CONFIG;
+  const $ = (id) => document.getElementById(id);
+  const fill = (el, arr, sel) => { el.innerHTML = '<option value="">Elige…</option>' + arr.map(v => `<option${v===sel?' selected':''}>${v}</option>`).join(''); };
+  fill($('area'), S.AREAS); fill($('tipo'), S.TIPOS);
+  $('prioridad').innerHTML = S.PRIORIDADES.map(v => `<option${v==='Normal'?' selected':''}>${v}</option>`).join('');
+  $('coord').textContent = S.COORDINADOR;
+  $('fecha').min = new Date().toISOString().slice(0,10);
+  try { const saved = JSON.parse(localStorage.getItem('sol_user') || '{}'); if (saved.n) $('solicitante').value = saved.n; if (saved.c) $('correo').value = saved.c; if (saved.a) $('area').value = saved.a; } catch (e) {}
+
+  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+  const show = (cls, html) => { const m = $('msg'); m.className = 'msg ' + cls; m.innerHTML = html; };
+
+  $('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if ($('web').value) return; // bot
+    const row = {
+      solicitante: $('solicitante').value.trim(),
+      correo: $('correo').value.trim(),
+      area: $('area').value,
+      tipo: $('tipo').value,
+      titulo: $('titulo').value.trim(),
+      detalle: $('detalle').value.trim(),
+      canal: $('canal').value.trim() || null,
+      fecha_requerida: $('fecha').value || null,
+      prioridad: $('prioridad').value,
+    };
+    const missing = [];
+    if (row.solicitante.length < 2) missing.push('tu nombre');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.correo)) missing.push('un correo válido');
+    if (!row.area) missing.push('el área');
+    if (!row.tipo) missing.push('el tipo de trabajo');
+    if (row.titulo.length < 3) missing.push('qué necesitas');
+    if (row.detalle.length < 10) missing.push('el detalle (mínimo 10 caracteres)');
+    if (missing.length) { show('err', 'Falta completar: ' + missing.join(', ') + '.'); return; }
+
+    const btn = $('send'); btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const { error } = await sb.from('solicitudes').insert(row);
+      if (error) throw new Error(error.message);
+      try { localStorage.setItem('sol_user', JSON.stringify({ n: row.solicitante, c: row.correo, a: row.area })); } catch (e2) {}
+      // Aviso por correo a Marketing (y acuse al solicitante). Si falla, la solicitud igual queda registrada.
+      fetch('https://formsubmit.co/ajax/' + encodeURIComponent(S.NOTIFY_EMAIL), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          _subject: `Nueva solicitud para el equipo: ${row.titulo}`,
+          _template: 'table',
+          _captcha: 'false',
+          _autoresponse: `Hola ${row.solicitante}, recibimos tu solicitud "${row.titulo}". Marketing la revisará y te confirmará cuando quede asignada al equipo.`,
+          Solicitante: row.solicitante, email: row.correo, Area: row.area, Tipo: row.tipo,
+          Pedido: row.titulo, Detalle: row.detalle, Canal: row.canal || '-',
+          'Fecha requerida': row.fecha_requerida || '-', Prioridad: row.prioridad,
+          Bandeja: location.href.replace(/index\.html?$/, '') + 'admin.html',
+        }),
+      }).catch(() => {});
+      $('titulo').value = ''; $('detalle').value = ''; $('canal').value = ''; $('fecha').value = ''; $('prioridad').value = 'Normal'; $('tipo').value = '';
+      show('ok', '<b>¡Listo! Tu solicitud llegó al equipo.</b><br>Marketing la revisará y te avisará por correo cuando quede asignada.');
+    } catch (err) {
+      show('err', 'No se pudo enviar: ' + (err.message || err) + '. Intenta de nuevo en unos minutos.');
+    } finally { btn.disabled = false; btn.textContent = 'Enviar solicitud'; }
+  });
+})();
+</script>
+</body>
+</html>
