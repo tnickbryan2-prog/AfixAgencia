@@ -80,6 +80,9 @@ window.APP_CONFIG = {
   ],
 };
 
+// Productos Afix que puede comprar el cliente (mismos SKUs del relevamiento de precios)
+window.APP_CONFIG.PRODUCTOS = window.APP_CONFIG.PRECIOS.SKUS;
+
 // Si las credenciales no se han configurado, la app funciona en MODO DEMO
 // (los datos se guardan solo en este navegador, útil para probar).
 window.APP_CONFIG.DEMO =

@@ -53,7 +53,8 @@
     const remainingAfterToday = actDays.filter((k) => k > cutoff);
     const remainingInclToday = actDays.filter((k) => k >= (isCurrent ? today : "9999"));
 
-    const R = rows.map((r) => ({ ...r, _d: keyOf(r.created_at), _h: hourOf(r.created_at) }));
+    const R = rows.map((r) => ({ ...r, _d: keyOf(r.created_at), _h: hourOf(r.created_at), _u: Number(r.unidades) || (Array.isArray(r.productos) ? r.productos.reduce((a, x) => a + (Number(x.cantidad) || 0), 0) : 0) }));
+    const sumU = (list) => list.reduce((a, r) => a + r._u, 0);
     const inMonth = R.filter((r) => r._d.startsWith(state.ym));
     const total = inMonth.length;
 
@@ -103,7 +104,7 @@
         tiendas: promoTiendas[p],
         hoy: pr.filter((r) => r._d === state.day).length,
         sem: pr.filter((r) => r._d >= last7Start && r._d <= state.day).length,
-        mes, avg: pAvg, proj: pProj, activeDays,
+        mes, avg: pAvg, proj: pProj, activeDays, unidades: sumU(prM),
         avance: meta ? mes / meta : NaN,
         ritmo: meta && remainingInclToday.length ? Math.max(0, meta - mes) / remainingInclToday.length : NaN,
         last, estado,
@@ -120,10 +121,24 @@
         promotora: [...new Set(tr.map((r) => r.promotora))].join(", ") || "—",
         hoy: R.filter((r) => r.tienda === t && r._d === state.day).length,
         mes: tr.length,
+        unidades: sumU(tr),
         share: total ? tr.length / total : 0,
         sinReg: elapsedAct.filter((k) => !daysWith.has(k)).length,
       };
     }).sort((a, b) => b.mes - a.mes);
+
+    // Ventas registradas: unidades de productos Afix comprados por los participantes
+    const conProd = inMonth.filter((r) => Array.isArray(r.productos) && r.productos.length);
+    const skuMap = {}, skuDia = {};
+    conProd.forEach((r) => r.productos.forEach((x) => {
+      skuMap[x.sku] = (skuMap[x.sku] || 0) + (Number(x.cantidad) || 0);
+      if (r._d === state.day) skuDia[x.sku] = (skuDia[x.sku] || 0) + (Number(x.cantidad) || 0);
+    }));
+    const ventas = {
+      unidades: sumU(inMonth), unidadesDia: sumU(dayRows.map((r) => R.find((x) => x.id === r.id) || r)),
+      conProd: conProd.length, promedio: conProd.length ? sumU(conProd) / conProd.length : 0,
+      skus: Object.entries(skuMap).sort((a, b) => b[1] - a[1]).map(([sku, u]) => ({ sku, u, dia: skuDia[sku] || 0 })),
+    };
 
     // Premios entregados
     const premioNames = [...new Set([...(CFG.PREMIOS || []), ...inMonth.map((r) => r.premio).filter(Boolean)])];
@@ -193,7 +208,7 @@
     const nPromos = promos.length || 1;
     return {
       today, days, actDays, elapsedAct, remainingAfterToday, isCurrent, total, prevSame, avg, proj, unique, dupPhones,
-      perDay, best, dayRows, dayHours, promos, tiendas, ruleta, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
+      perDay, best, dayRows, dayHours, promos, tiendas, ruleta, ventas, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
       metaEquipo: meta * nPromos,
       metaDiariaEquipo: meta && actDays.length ? (meta * nPromos) / actDays.length : 0,
       coberturaHoy: tiendas.filter((t) => t.hoy > 0 && TIENDAS.some((x) => x.tienda === t.tienda)).length,
@@ -327,11 +342,11 @@
       <div class="card panel">
         <div class="panel-head"><h3>Avance por promotora</h3><span class="muted">Hoy = día seleccionado · 7 días = semana que termina ese día</span></div>
         <div class="table-wrap"><table class="ind-table">
-          <thead><tr><th>Promotora</th><th class="num">Hoy</th><th class="num">7 días</th><th class="num">Mes</th><th style="min-width:170px">Avance vs meta</th><th class="num">Ritmo necesario / día</th><th class="num">Proyección</th><th class="num">Constancia</th><th>Último registro</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Promotora</th><th class="num">Hoy</th><th class="num">7 días</th><th class="num">Mes</th><th class="num">Unid. mes</th><th style="min-width:170px">Avance vs meta</th><th class="num">Ritmo necesario / día</th><th class="num">Proyección</th><th class="num">Constancia</th><th>Último registro</th><th>Estado</th></tr></thead>
           <tbody>${m.promos.length ? m.promos.map((p) => `
             <tr>
               <td><strong>${esc(p.promotora)}</strong><div class="muted small">${esc(p.tiendas.map((t) => t.replace(/^Sodimac\s+/i, "")).join(" · "))}</div></td>
-              <td class="num">${p.hoy}</td><td class="num">${p.sem}</td><td class="num"><b>${p.mes}</b></td>
+              <td class="num">${p.hoy}</td><td class="num">${p.sem}</td><td class="num"><b>${p.mes}</b></td><td class="num">${p.unidades || '<span class="muted">0</span>'}</td>
               <td>${m.meta ? `<div class="prog"><div class="${ESTADO[p.estado][1]}" style="width:${Math.min(100, p.avance * 100)}%"></div></div><div class="small muted">${p.mes} / ${m.meta} · ${pct(p.avance)}</div>` : '<span class="muted small">Sin meta</span>'}</td>
               <td class="num">${isFinite(p.ritmo) ? fmt1(p.ritmo) : "—"}</td>
               <td class="num">${p.proj}</td>
@@ -345,12 +360,24 @@
       <div class="card panel">
         <div class="panel-head"><h3>Rendimiento por tienda</h3><span class="muted">Días sin registro = días de activación del mes con 0 vouchers</span></div>
         <div class="table-wrap"><table class="ind-table">
-          <thead><tr><th>Tienda</th><th>Promotora</th><th class="num">Día sel.</th><th class="num">Mes</th><th style="min-width:160px">Participación</th><th class="num">Días sin registro</th></tr></thead>
+          <thead><tr><th>Tienda</th><th>Promotora</th><th class="num">Día sel.</th><th class="num">Mes</th><th class="num">Unid. mes</th><th style="min-width:160px">Participación</th><th class="num">Días sin registro</th></tr></thead>
           <tbody>${m.tiendas.map((t) => `
-            <tr><td><strong>${esc(t.tienda)}</strong></td><td>${esc(t.promotora)}</td><td class="num">${t.hoy}</td><td class="num"><b>${t.mes}</b></td>
+            <tr><td><strong>${esc(t.tienda)}</strong></td><td>${esc(t.promotora)}</td><td class="num">${t.hoy}</td><td class="num"><b>${t.mes}</b></td><td class="num">${t.unidades || '<span class="muted">0</span>'}</td>
               <td><div class="prog"><div style="width:${t.share * 100}%"></div></div><div class="small muted">${pct(t.share)}</div></td>
               <td class="num">${t.sinReg ? `<span class="pill ${t.sinReg >= 3 ? "bad" : "warn"}">${t.sinReg}</span>` : '<span class="pill ok">0</span>'}</td></tr>`).join("")}</tbody>
         </table></div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3>Ventas registradas por SKU · ${esc(ymLabel(state.ym))}</h3><span class="muted">Unidades Afix que compraron los participantes</span></div>
+        <div class="prize-cards">
+          <div class="prize"><div class="lbl">Unidades vendidas</div><div class="val">${fmtN(m.ventas.unidades)}</div><div class="sub">${fmtN(m.ventas.unidadesDia)} el ${esc(dLabel(state.day))}</div></div>
+          <div class="prize"><div class="lbl">Unidades por voucher</div><div class="val">${fmt1(m.ventas.promedio)}</div><div class="sub">${m.ventas.conProd} vouchers con productos</div></div>
+          <div class="prize"><div class="lbl">SKU más vendido</div><div class="val" style="font-size:17px;line-height:1.25">${m.ventas.skus[0] ? esc(m.ventas.skus[0].sku.replace(/^Pegamento\s+/i, "")) : "—"}</div><div class="sub">${m.ventas.skus[0] ? m.ventas.skus[0].u + " unidades" : "&nbsp;"}</div></div>
+        </div>
+        ${m.ventas.skus.length ? `<div class="bars" style="margin-top:14px">${m.ventas.skus.map((x) => `<div class="bar-row"><span class="name" title="${esc(x.sku)}">${esc(x.sku.replace(/^Pegamento\s+/i, ""))}</span><div class="bar-track"><div class="bar-fill" style="width:${(x.u / m.ventas.skus[0].u) * 100}%"></div></div><span class="n">${x.u}</span></div>`).join("")}</div>`
+          : '<div class="empty" style="padding:18px">Aún no hay vouchers con productos registrados este mes.</div>'}
+        ${m.ventas.conProd < m.total ? `<p class="small muted" style="margin:10px 0 0">${m.total - m.ventas.conProd} voucher(s) del mes se registraron antes de pedir los productos y no suman unidades.</p>` : ""}
       </div>
 
       <div class="card panel">
@@ -444,10 +471,10 @@
     };
     $("mCsv").onclick = () => {
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const head = ["Promotora", "Tiendas", `Hoy (${state.day})`, "Últimos 7 días", `Mes (${state.ym})`, "Meta", "Avance %", "Ritmo necesario/día", "Proyección", "Constancia %", "Estado"];
-      const lines = m.promos.map((p) => [p.promotora, p.tiendas.join(" / "), p.hoy, p.sem, p.mes, m.meta || "", isFinite(p.avance) ? Math.round(p.avance * 100) : "", isFinite(p.ritmo) ? p.ritmo.toFixed(1) : "", p.proj, m.elapsedAct.length ? Math.round((p.activeDays / m.elapsedAct.length) * 100) : "", ESTADO[p.estado][0]].map(q).join(";"));
-      const tHead = ["Tienda", "Promotora", "Día sel.", "Mes", "Participación %", "Días sin registro"];
-      const tLines = m.tiendas.map((t) => [t.tienda, t.promotora, t.hoy, t.mes, Math.round(t.share * 100), t.sinReg].map(q).join(";"));
+      const head = ["Promotora", "Tiendas", `Hoy (${state.day})`, "Últimos 7 días", `Mes (${state.ym})`, "Unidades mes", "Meta", "Avance %", "Ritmo necesario/día", "Proyección", "Constancia %", "Estado"];
+      const lines = m.promos.map((p) => [p.promotora, p.tiendas.join(" / "), p.hoy, p.sem, p.mes, p.unidades, m.meta || "", isFinite(p.avance) ? Math.round(p.avance * 100) : "", isFinite(p.ritmo) ? p.ritmo.toFixed(1) : "", p.proj, m.elapsedAct.length ? Math.round((p.activeDays / m.elapsedAct.length) * 100) : "", ESTADO[p.estado][0]].map(q).join(";"));
+      const tHead = ["Tienda", "Promotora", "Día sel.", "Mes", "Unidades mes", "Participación %", "Días sin registro"];
+      const tLines = m.tiendas.map((t) => [t.tienda, t.promotora, t.hoy, t.mes, t.unidades, Math.round(t.share * 100), t.sinReg].map(q).join(";"));
       const csv = "﻿" + head.map(q).join(";") + "\n" + lines.join("\n") + "\n\n" + tHead.map(q).join(";") + "\n" + tLines.join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

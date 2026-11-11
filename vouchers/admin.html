@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#74119E" />
   <title>Admin · Vouchers Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: datos de prueba guardados en este navegador. Cualquier contraseña funciona.</div>
@@ -93,7 +93,7 @@
         <table>
           <thead>
             <tr>
-              <th>Foto</th><th>Fecha</th><th>Cliente</th><th>Teléfono</th><th>Premio</th><th>Tienda</th><th>Promotora</th><th></th>
+              <th>Foto</th><th>Fecha</th><th>Cliente</th><th>Teléfono</th><th>Productos comprados</th><th>Premio</th><th>Tienda</th><th>Promotora</th><th></th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -120,11 +120,11 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=16"></script>
-  <script src="api.js?v=16"></script>
-  <script src="metrics.js?v=16"></script>
-  <script src="stock.js?v=16"></script>
-  <script src="precios-admin.js?v=16"></script>
+  <script src="config.js?v=17"></script>
+  <script src="api.js?v=17"></script>
+  <script src="metrics.js?v=17"></script>
+  <script src="stock.js?v=17"></script>
+  <script src="precios-admin.js?v=17"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -275,6 +275,7 @@
             <td class="nowrap">${esc(fmtDate(r.created_at))}</td>
             <td><strong>${esc(r.nombre)} ${esc(r.apellido)}</strong></td>
             <td class="nowrap">${esc(fmtPhone(r.telefono))} ${phoneCount[r.telefono] > 1 ? `<span class="tag dup" title="Este teléfono aparece ${phoneCount[r.telefono]} veces">×${phoneCount[r.telefono]}</span>` : ""}</td>
+            <td class="small">${Array.isArray(r.productos) && r.productos.length ? r.productos.map((x) => `<div><b>${x.cantidad}×</b> ${esc(String(x.sku).replace(/^Pegamento\s+/i, ""))}</div>`).join("") : '<span class="muted">—</span>'}</td>
             <td>${r.premio ? esc(r.premio) : '<span class="muted">—</span>'}</td>
             <td><span class="tag">${esc(r.tienda)}</span></td>
             <td>${esc(r.promotora)}</td>
@@ -324,13 +325,13 @@
 
       // ---------- Exportar CSV (abre en Excel) ----------
       $("csvBtn").addEventListener("click", () => {
-        const cols = ["Fecha", "Hora", "Nombre", "Apellido", "Teléfono", "Premio", "Tienda", "Promotora", "Teléfono repetido", "Acepta uso de datos", "Acepta publicidad", "Versión consentimiento", "Foto (ruta)"];
+        const cols = ["Fecha", "Hora", "Nombre", "Apellido", "Teléfono", "Productos comprados", "Unidades", "Premio", "Tienda", "Promotora", "Teléfono repetido", "Acepta uso de datos", "Acepta publicidad", "Versión consentimiento", "Foto (ruta)"];
         const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
         const lines = filtered.map((r) => {
           const d = new Date(r.created_at);
           const fecha = dayKey(r.created_at);
           const hora = new Intl.DateTimeFormat("es-PE", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-          return [fecha, hora, r.nombre, r.apellido, r.telefono, r.premio || "", r.tienda, r.promotora, phoneCount[r.telefono] > 1 ? "Sí" : "No", r.acepta_datos === false ? "No" : "Sí", r.acepta_publicidad ? "Sí" : "No", r.consentimiento_version || "v1", API.isDemo ? "demo" : r.foto_path].map(q).join(";");
+          return [fecha, hora, r.nombre, r.apellido, r.telefono, Array.isArray(r.productos) ? r.productos.map((x) => `${x.cantidad} x ${x.sku}`).join(" | ") : "", r.unidades || "", r.premio || "", r.tienda, r.promotora, phoneCount[r.telefono] > 1 ? "Sí" : "No", r.acepta_datos === false ? "No" : "Sí", r.acepta_publicidad ? "Sí" : "No", r.consentimiento_version || "v1", API.isDemo ? "demo" : r.foto_path].map(q).join(";");
         });
         const csv = "﻿" + cols.map(q).join(";") + "\n" + lines.join("\n");
         const a = document.createElement("a");

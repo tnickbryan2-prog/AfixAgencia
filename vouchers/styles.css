@@ -367,3 +367,18 @@ a.btn { text-decoration: none; }
 .up-r { color: var(--coral); font-weight: 700; }
 .down-g { color: var(--ok); font-weight: 700; }
 .tabs-form a { font-size: 13.5px; }
+
+/* Productos comprados */
+.prod-line { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.prod-line select { height: 50px; border: 1.5px solid var(--line); border-radius: 11px; padding: 0 10px; font-size: 14.5px; background: #fff; min-width: 0; width: 100%; }
+.stepper { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 11px; overflow: hidden; height: 50px; }
+.stepper button { width: 38px; height: 100%; border: 0; background: var(--purple-soft); color: var(--purple); font-size: 22px; font-weight: 700; cursor: pointer; }
+.stepper input { width: 42px; height: 100%; border: 0; text-align: center; font-size: 17px; font-weight: 700; -moz-appearance: textfield; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.p-del { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #f0edf2; color: var(--muted); font-size: 20px; cursor: pointer; }
+.p-del:hover { background: var(--coral-soft); color: var(--coral); }
+.add-prod { width: 100%; height: 44px; border-style: dashed; margin-top: 2px; }
+.prod-total { font-size: 13px; color: var(--purple); font-weight: 700; margin-top: 8px; }
+.field.invalid .prod-line select { border-color: var(--coral); }
+.field .stepper input { width: 42px; height: 100%; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+.field .prod-line select { height: 50px; }

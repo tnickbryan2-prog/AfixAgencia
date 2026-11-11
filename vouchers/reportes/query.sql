@@ -7,7 +7,7 @@ with params as (
 ),
 v as (
   select (created_at at time zone 'America/Lima') as ts, tienda, promotora, premio,
-         left(md5(telefono), 10) as k, acepta_datos
+         left(md5(telefono), 10) as k, acepta_datos, coalesce(unidades, 0) as u, productos
   from public.vouchers, params
   where (created_at at time zone 'America/Lima')::date between params.s - 7 and params.e
 )
@@ -18,7 +18,7 @@ select json_build_object(
   'dias_activacion', (select dias_activacion from public.panel_config where id = 1),
   'vouchers', coalesce((select json_agg(json_build_object(
       'f', ts::date, 'h', extract(hour from ts)::int, 't', tienda, 'p', promotora,
-      'z', premio, 'k', k, 'a', acepta_datos)) from v), '[]'::json),
+      'z', premio, 'k', k, 'a', acepta_datos, 'u', u, 'pr', productos)) from v), '[]'::json),
   'stock', coalesce((select json_agg(x) from (
       select promotora as p, premio as z,
              coalesce(sum(cantidad) filter (where tipo = 'entrega'), 0) as rec,

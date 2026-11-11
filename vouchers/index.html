@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#74119E" />
   <title>Registro de Vouchers · Afix Sodimac</title>
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -65,7 +65,16 @@
         </div>
 
         <div class="divider"></div>
-        <p class="section-label">3 · Punto de venta</p>
+        <p class="section-label">3 · Productos Afix comprados</p>
+        <div class="field" id="f-productos">
+          <div id="prodLines"></div>
+          <button type="button" class="btn btn-ghost add-prod" id="addProd">+ Agregar otro producto</button>
+          <div class="prod-total" id="prodTotal"></div>
+          <div class="err">Agrega al menos un producto Afix con su cantidad.</div>
+        </div>
+
+        <div class="divider"></div>
+        <p class="section-label">4 · Punto de venta</p>
         <div class="field" id="f-tienda">
           <label for="tienda">Tienda Sodimac</label>
           <select id="tienda" class="hidden"></select>
@@ -79,7 +88,7 @@
         </div>
 
         <div class="divider"></div>
-        <p class="section-label">4 · Premio entregado</p>
+        <p class="section-label">5 · Premio entregado</p>
         <div class="ruleta-chip hidden" id="ruletaChip"></div>
         <div class="field" id="f-premio">
           <label for="premio">¿Qué se le entregó al cliente?</label>
@@ -88,7 +97,7 @@
         </div>
 
         <div class="divider"></div>
-        <p class="section-label">5 · Autorización del cliente</p>
+        <p class="section-label">6 · Autorización del cliente</p>
         <p class="consent-intro">Lee o muestra este texto al cliente antes de marcar.</p>
         <div class="field consent" id="f-acepta">
           <label class="check-row" for="acepta">
@@ -129,8 +138,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=16"></script>
-  <script src="api.js?v=16"></script>
+  <script src="config.js?v=17"></script>
+  <script src="api.js?v=17"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -212,6 +221,47 @@
         promoSel.replaceWith(inp);
       }
 
+      // Productos Afix comprados (SKU + unidades)
+      const PRODS = CFG.PRODUCTOS || (CFG.PRECIOS && CFG.PRECIOS.SKUS) || [];
+      const prodOpts = '<option value="">Elige el producto…</option>' + PRODS.map((p) => `<option value="${escH(p)}">${escH(p.replace(/^Pegamento\s+/i, ""))}</option>`).join("");
+      function addLine(sku = "", qty = 1) {
+        const d = document.createElement("div");
+        d.className = "prod-line";
+        d.innerHTML = `<select class="p-sku" aria-label="Producto">${prodOpts}</select>
+          <div class="stepper"><button type="button" class="st-m" aria-label="Menos">−</button><input class="p-qty" type="number" inputmode="numeric" min="1" max="99" value="${qty}" aria-label="Unidades"/><button type="button" class="st-p" aria-label="Más">+</button></div>
+          <button type="button" class="p-del" aria-label="Quitar producto">×</button>`;
+        d.querySelector(".p-sku").value = sku;
+        $("prodLines").appendChild(d);
+        updateProd();
+      }
+      function readProductos() {
+        const map = {};
+        document.querySelectorAll(".prod-line").forEach((l) => {
+          const sku = l.querySelector(".p-sku").value, q = Math.max(0, Math.min(99, parseInt(l.querySelector(".p-qty").value, 10) || 0));
+          if (sku && q > 0) map[sku] = (map[sku] || 0) + q;
+        });
+        return Object.entries(map).map(([sku, cantidad]) => ({ sku, cantidad }));
+      }
+      function updateProd() {
+        const lines = document.querySelectorAll(".prod-line");
+        lines.forEach((l) => (l.querySelector(".p-del").style.visibility = lines.length > 1 ? "visible" : "hidden"));
+        const items = readProductos(), u = items.reduce((a, b) => a + b.cantidad, 0);
+        $("prodTotal").textContent = u ? `Total: ${u} unidad${u === 1 ? "" : "es"} · ${items.length} producto${items.length === 1 ? "" : "s"}` : "";
+        if (u) $("f-productos").classList.remove("invalid");
+      }
+      $("prodLines").addEventListener("click", (e) => {
+        const l = e.target.closest(".prod-line"); if (!l) return;
+        const inp = l.querySelector(".p-qty");
+        if (e.target.classList.contains("st-m")) inp.value = Math.max(1, (parseInt(inp.value, 10) || 1) - 1);
+        if (e.target.classList.contains("st-p")) inp.value = Math.min(99, (parseInt(inp.value, 10) || 0) + 1);
+        if (e.target.classList.contains("p-del")) l.remove();
+        updateProd();
+      });
+      $("prodLines").addEventListener("change", updateProd);
+      $("prodLines").addEventListener("input", updateProd);
+      $("addProd").onclick = () => addLine();
+      addLine();
+
       // Foto
       let photoFile = null;
       $("foto").addEventListener("change", (e) => {
@@ -245,18 +295,22 @@
           tienda: clean(useSelect ? $("tienda").value : $("tiendaText").value),
           promotora: title($("promotora").value),
           premio: $("premio").value,
+          productos: readProductos(),
         };
         const ok = {
           foto: !!photoFile,
           nombre: vals.nombre.length >= 2,
           apellido: vals.apellido.length >= 2,
           telefono: /^9\d{8}$/.test(vals.telefono),
+          productos: vals.productos.length > 0,
           tienda: vals.tienda.length >= 2,
           promotora: vals.promotora.length >= 2,
           premio: vals.premio.length >= 2,
           acepta: $("acepta").checked,
         };
         vals.acepta_datos = ok.acepta;
+        vals.unidades = vals.productos.reduce((a, b) => a + b.cantidad, 0) || null;
+        if (!vals.productos.length) vals.productos = null;
         vals.acepta_publicidad = $("aceptaPubli").checked;
         vals.giro_id = giro ? giro.id : null;
         vals.consentimiento_version = (CFG.PRIVACIDAD && CFG.PRIVACIDAD.VERSION) || null;
@@ -322,6 +376,7 @@
         $("nombre").value = "";
         $("apellido").value = "";
         $("telefono").value = "";
+        $("prodLines").innerHTML = ""; addLine();
         $("acepta").checked = false;
         $("aceptaPubli").checked = false;
         fillPremios();

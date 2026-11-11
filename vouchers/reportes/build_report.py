@@ -96,6 +96,7 @@ def compute(data):
         if cumpl is not None:
             estado = "Cumplió" if cumpl >= 1 else ("En riesgo" if cumpl >= .8 else "Bajo meta")
         prom_rows.append(dict(
+            unidades=sum(int(v.get("u") or 0) for v in pw), unidades_prev=sum(int(v.get("u") or 0) for v in pp),
             promotora=p, tiendas=sorted({v["t"] for v in pw}),
             semana=len(pw), previa=len(pp), var=var(len(pw), len(pp)),
             meta=round(meta_sem) if meta_sem else None, cumpl=cumpl, estado=estado,
@@ -110,6 +111,7 @@ def compute(data):
     for t in tiendas:
         tw = [v for v in W if v["t"] == t]; tp = [v for v in P if v["t"] == t]
         tie_rows.append(dict(
+            unidades=sum(int(v.get("u") or 0) for v in tw),
             tienda=t, promotora=", ".join(sorted({v["p"] for v in tw})) or "—",
             semana=len(tw), previa=len(tp), var=var(len(tw), len(tp)),
             share=(len(tw) / tot) if tot else 0,
@@ -140,6 +142,9 @@ def compute(data):
                 alertas_stock.append(f"{p}: {z} quedan {saldo}" + (f" (~{cob:.1f} semanas al ritmo actual)" if cob else ""))
         stock_rows.append(dict(promotora=p, cells=cells, saldo=sum(c["saldo"] for c in cells)))
 
+    sku_u = Counter()
+    for v in W:
+        for x in (v.get("pr") or []): sku_u[x.get("sku")] += int(x.get("cantidad") or 0)
     hours = Counter(v["h"] for v in W)
     dow_cnt = Counter(v["f"].isoweekday() - 1 for v in W)
 
@@ -157,7 +162,7 @@ def compute(data):
         prom_rows=prom_rows, tie_rows=tie_rows,
         premios_names=premios_names, premios_sem=premios_sem, premios_tot=sum(premios_sem.values()),
         stock_rows=stock_rows, alertas_stock=alertas_stock,
-        hours=hours, dow_cnt=dow_cnt, total_historico=data.get("total_historico"),
+        hours=hours, dow_cnt=dow_cnt, sku_u=sku_u, unidades=sum(int(v.get("u") or 0) for v in W), unidades_prev=sum(int(v.get("u") or 0) for v in P), total_historico=data.get("total_historico"),
     )
 
 def summary_text(m):
@@ -168,13 +173,15 @@ def summary_text(m):
          f"Meta mensual por promotora: {m['meta_mes'] or 'no definida'} | meta semanal equipo: {m['meta_sem_equipo'] or '—'}",
          f"Tiendas activas: {m['tiendas_activas']}/{m['n_tiendas']} | promotoras activas: {m['promos_activas']}/{m['n_promos']}",
          "Por día: " + ", ".join(f"{DOW[d.isoweekday()-1]} {d.day}: {m['per_day'][d]} (previa {m['per_day_p'][d]})" for d in m["days"]),
+         f"Unidades Afix vendidas (vouchers con productos): {m['unidades']} | previa: {m['unidades_prev']}",
+         "Unidades por SKU: " + (", ".join(f"{k}: {n}" for k, n in m["sku_u"].most_common()) or "sin datos"),
          "", "PROMOTORAS:"]
     for r in m["prom_rows"]:
-        L.append(f"- {r['promotora']}: {r['semana']} (previa {r['previa']}, var {pct(r['var'])}), meta sem {r['meta'] or '—'}, cumpl {pct(r['cumpl'])}, "
+        L.append(f"- {r['promotora']}: {r['semana']} vouchers, {r['unidades']} unidades (previa {r['previa']}, var {pct(r['var'])}), meta sem {r['meta'] or '—'}, cumpl {pct(r['cumpl'])}, "
                  f"constancia {r['dias']}/{len(m['act_days'])} días, mejor día {r['mejor_dia']}, estado {r['estado']}")
     L.append("\nTIENDAS:")
     for r in m["tie_rows"]:
-        L.append(f"- {r['tienda']} ({r['promotora']}): {r['semana']} (previa {r['previa']}, var {pct(r['var'])}), share {pct(r['share'])}, días sin registro {r['sin_reg']}")
+        L.append(f"- {r['tienda']} ({r['promotora']}): {r['semana']} vouchers, {r['unidades']} unidades (previa {r['previa']}, var {pct(r['var'])}), share {pct(r['share'])}, días sin registro {r['sin_reg']}")
     L.append("\nPREMIOS SEMANA: " + ", ".join(f"{z}: {n}" for z, n in m["premios_sem"].items()))
     L.append("STOCK AL CIERRE:")
     for r in m["stock_rows"]:
@@ -311,7 +318,7 @@ def render_html(m, a, generado):
       <div class="body">
         <div class="grid4">
           {kpi("Vouchers de la semana", m["total"], delta(m["var"]), True)}
-          {kpi("Promedio por día", f'{m["prom_dia"]:.1f}', f'{len(m["act_days"])} días de activación')}
+          {kpi("Unidades Afix vendidas", m["unidades"], delta(var(m["unidades"], m["unidades_prev"])) if m["unidades_prev"] else f'{m["prom_dia"]:.1f} vouchers por día')}
           {meta_txt}
           {kpi("Clientes únicos", m["unicos"], f'{m["repetidos"]} teléfono(s) repetido(s)')}
         </div>
@@ -331,11 +338,11 @@ def render_html(m, a, generado):
     def est_cls(e): return {"Cumplió": "ok", "En riesgo": "warn", "Bajo meta": "bad"}.get(e, "neu")
     prow = "".join(f"""<tr><td><b>{esc(r['promotora'])}</b><div class="mut xs">{esc(' · '.join(t.replace('Sodimac ','') for t in r['tiendas']))}</div></td>
       <td class="n"><b>{r['semana']}</b></td><td class="n">{r['previa']}</td><td class="n">{('<span class="up">+' if (r['var'] or 0)>=0 else '<span class="down">')+pct(r['var'])+'</span>' if r['var'] is not None else '<span class="mut">—</span>'}</td>
-      <td class="n">{r['meta'] or '—'}</td>
+      <td class="n">{r['unidades']}</td><td class="n">{r['meta'] or '—'}</td>
       <td>{(f'<div class="bar"><i class="{est_cls(r["estado"])}" style="width:{min(100,(r["cumpl"] or 0)*100):.0f}%"></i></div><div class="xs mut">{pct(r["cumpl"])}</div>') if r['cumpl'] is not None else '<span class="mut xs">Sin meta</span>'}</td>
       <td class="n">{r['dias']}/{len(m['act_days'])}</td><td class="n">{r['prom_dia']:.1f}</td><td class="xs">{esc(r['mejor_dia'])}</td>
       <td><span class="pill {est_cls(r['estado'])}">{esc(r['estado'])}</span></td></tr>""" for r in m["prom_rows"])
-    trow = "".join(f"""<tr><td><b>{esc(r['tienda'])}</b></td><td class="mut">{esc(r['promotora'])}</td><td class="n"><b>{r['semana']}</b></td><td class="n">{r['previa']}</td>
+    trow = "".join(f"""<tr><td><b>{esc(r['tienda'])}</b></td><td class="mut">{esc(r['promotora'])}</td><td class="n"><b>{r['semana']}</b></td><td class="n">{r['unidades']}</td><td class="n">{r['previa']}</td>
       <td class="n">{('<span class="up">+' if (r['var'] or 0)>=0 else '<span class="down">')+pct(r['var'])+'</span>' if r['var'] is not None else '<span class="mut">—</span>'}</td>
       <td><div class="bar"><i style="width:{r['share']*100:.0f}%"></i></div><div class="xs mut">{pct(r['share'])}</div></td>
       <td class="n">{'<span class="pill ok">0</span>' if r['sin_reg']==0 else f'<span class="pill {"bad" if r["sin_reg"]>=3 else "warn"}">{r["sin_reg"]}</span>'}</td></tr>""" for r in m["tie_rows"])
@@ -343,9 +350,9 @@ def render_html(m, a, generado):
     <div class="page">{hdr_sm("Desempeño por promotora y tienda")}
       <div class="body">
         <div class="card"><h3>Ranking de promotoras <span>Meta semanal = meta mensual prorrateada por días de activación</span></h3>
-          <table><thead><tr><th>Promotora</th><th class="n">Semana</th><th class="n">Previa</th><th class="n">Var.</th><th class="n">Meta</th><th style="width:90px">Cumplimiento</th><th class="n">Constancia</th><th class="n">Prom./día</th><th>Mejor día</th><th>Estado</th></tr></thead><tbody>{prow}</tbody></table></div>
+          <table><thead><tr><th>Promotora</th><th class="n">Semana</th><th class="n">Previa</th><th class="n">Var.</th><th class="n">Unid.</th><th class="n">Meta</th><th style="width:90px">Cumplimiento</th><th class="n">Constancia</th><th class="n">Prom./día</th><th>Mejor día</th><th>Estado</th></tr></thead><tbody>{prow}</tbody></table></div>
         <div class="card sec"><h3>Rendimiento por tienda <span>Días sin registro = días de activación con 0 vouchers</span></h3>
-          <table><thead><tr><th>Tienda</th><th>Promotora</th><th class="n">Semana</th><th class="n">Previa</th><th class="n">Var.</th><th style="width:90px">Participación</th><th class="n">Días sin registro</th></tr></thead><tbody>{trow}</tbody></table></div>
+          <table><thead><tr><th>Tienda</th><th>Promotora</th><th class="n">Semana</th><th class="n">Unid.</th><th class="n">Previa</th><th class="n">Var.</th><th style="width:90px">Participación</th><th class="n">Días sin registro</th></tr></thead><tbody>{trow}</tbody></table></div>
         <div class="grid2 sec">
           <div class="card"><h3>Horas pico <span>Vouchers por hora</span></h3>{svg_cols([f"{h}h" for h in range(9,22)], [m['hours'].get(h,0) for h in range(9,22)])}</div>
           <div class="card"><h3>Días de la semana <span>Vouchers por día</span></h3>{svg_cols(DOW, [m['dow_cnt'].get(i,0) for i in range(7)])}</div>
