@@ -382,3 +382,8 @@ a.btn { text-decoration: none; }
 .field.invalid .prod-line select { border-color: var(--coral); }
 .field .stepper input { width: 42px; height: 100%; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .field .prod-line select { height: 50px; }
+
+/* 4 pestañas en el portal de promotoras */
+.tabs-form a { white-space: nowrap; }
+@media (max-width: 420px) { .tabs-form { gap: 3px; } .tabs-form a { font-size: 12px; padding: 10px 3px; } }
+@media (max-width: 340px) { .tabs-form a { font-size: 11px; } }

@@ -71,3 +71,16 @@ api.js              Conexión a Supabase / modo demo
 styles.css          Estilos (paleta Artecola)
 supabase/schema.sql Tabla, bucket de fotos y seguridad
 ```
+
+---
+
+## Share of Shelf por foto (pestaña "📸 Nuevo análisis")
+
+| Vista | Archivo | Quién | Acceso |
+|---|---|---|---|
+| Nuevo análisis | `sos.html` | Promotoras | Libre. Solo **envían** fotos y datos de la góndola; no ven resultados. |
+| Share of Shelf (Nuevo análisis, Reporte, Historial, Configuración) | `sos-admin.html`, dentro de `admin.html` → pestaña **📸 Share of Shelf** | Administrador | Mismo usuario del panel de vouchers (`admin_emails`). |
+
+- **Base de datos:** tablas `sos_analisis` (envíos y resultados) y `sos_config` (marcas propias/rivales, meta, catálogo POP, modelo); bucket privado `sos` para las fotos.
+- **IA:** Edge Function `sos-analizar` (código en `supabase/functions/sos-analizar/`). Lee las fotos, llama a la API de Claude y guarda el resultado. Necesita el secreto `ANTHROPIC_API_KEY` en Supabase → Edge Functions → Secrets.
+- **Límites:** cada envío de promotora se analiza una sola vez; máximo de análisis por hora configurable. El admin puede reintentar o reanalizar.

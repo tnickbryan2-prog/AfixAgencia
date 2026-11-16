@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#5a1281" />
   <title>Gira y gana · Afix</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=18" />
   <style>
     body { background: radial-gradient(1200px 700px at 50% -10%, #8a2bbd 0%, #5a1281 45%, #3a0a55 100%); min-height: 100vh; }
     .r-wrap { max-width: 520px; margin: 0 auto; padding: 14px 14px 40px; color: #fff; }
@@ -45,12 +45,14 @@
     .tabs-top { display: flex; gap: 6px; background: rgba(255,255,255,.14); padding: 5px; border-radius: 14px; margin-bottom: 14px; }
     .tabs-top a { flex: 1; text-align: center; color: #fff; text-decoration: none; font-weight: 800; font-size: 14px; padding: 10px; border-radius: 10px; opacity: .85; }
     .tabs-top a.active { background: #fff; color: var(--purple); opacity: 1; }
+    .tabs-top a { white-space: nowrap; }
+    @media (max-width: 420px) { .tabs-top { gap: 3px; } .tabs-top a { font-size: 12px; padding: 10px 3px; } }
   </style>
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los giros se guardan solo en este navegador.</div>
   <div class="r-wrap">
-    <nav class="tabs-top"><a href="index.html">Registro</a><a class="active" href="ruleta.html">🎡 Ruleta</a><a href="precios.html">💲 Precios</a></nav>
+    <nav class="tabs-top"><a href="index.html">Registro</a><a class="active" href="ruleta.html">🎡 Ruleta</a><a href="precios.html">💲 Precios</a><a href="sos.html">📸 Nuevo análisis</a></nav>
 
     <section class="board">
       <div class="b-head">
@@ -86,8 +88,8 @@
   <canvas id="confetti"></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="config.js?v=17"></script>
-  <script src="api.js?v=17"></script>
+  <script src="config.js?v=18"></script>
+  <script src="api.js?v=18"></script>
   <script>
   (function () {
     const CFG = window.APP_CONFIG;
