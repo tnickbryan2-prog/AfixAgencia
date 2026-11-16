@@ -437,12 +437,18 @@ async function waitRow(id,maxMs=300000){
   throw{message:"El análisis sigue en proceso. Lo verás en el Historial cuando termine."};
 }
 async function analizar(){
+  $("#err").style.background="";$("#err").style.color="";
   const m=meta();
   if(!m.tienda){toast("Indica la tienda");$("#fTienda").focus();return}
   ls("sos_prom",m.promotora);
   $("#err").classList.remove("on");$("#loading").classList.add("on");$("#btnAnalizar").disabled=true;steps(true);$("#loadSub").textContent="Subiendo fotos…";
   try{
     const id=await SOS.submit(m,photos,"admin");
+    if(SOS.lastModo==="manual"){
+      $("#err").innerHTML=`✔ Góndola guardada en la cola. Analízala desde el <a href="${ANALIZADOR}" target="_blank" rel="noopener"><b>Analizador en claude.ai</b></a>; el reporte aparecerá aquí en Historial.`;
+      $("#err").style.background="var(--p-soft)";$("#err").style.color="#4A0A66";$("#err").classList.add("on");
+      photos=[];renderThumbs();loadHist();return;
+    }
     const row=await waitRow(id);
     loadHist();
     if(row.estado==="error")throw{message:row.error||"Error en el análisis"};
@@ -711,7 +717,7 @@ function renderReport(){
   $("#btnNew").onclick=()=>{photos=[];renderThumbs();$("#fAncho").value="";$("#fNiveles").value="";show("nuevo")};
   if($("#btnSave"))$("#btnSave").onclick=()=>saveReport(c);
   if($("#btnDel"))$("#btnDel").onclick=async()=>{if(!confirm("¿Eliminar este análisis y sus fotos? No se puede deshacer."))return;try{await SOS.remove(cur.row);toast("Análisis eliminado");cur=null;$("#tabReporte").disabled=true;await loadHist();show("historial")}catch(e){toast("No se pudo eliminar")}};
-  if($("#btnRe"))$("#btnRe").onclick=async()=>{if(!confirm("¿Volver a analizar las fotos con la IA? Se reemplazará el resultado actual (tus ajustes se conservan)."))return;try{await SOS.analyze(cur.id,true);toast("Reanalizando… lo verás en el Historial");loadHist();show("historial")}catch(e){toast(e.message)}};
+  if($("#btnRe"))$("#btnRe").onclick=async()=>{if(!confirm("¿Volver a analizar las fotos con la IA? Se reemplazará el resultado actual (tus ajustes se conservan)."))return;try{const r0=await SOS.analyze(cur.id,true);if(r0?.modo==="manual"){await SOS.client().from("sos_analisis").update({estado:"pendiente",error:null}).eq("id",cur.id);window.open(ANALIZADOR,"_blank");toast("Quedó en la cola del Analizador en claude.ai");loadHist();show("historial");return}toast("Reanalizando… lo verás en el Historial");loadHist();show("historial")}catch(e){toast(e.message)}};
   drawCharts(c);
 }
 function h2h(c){
@@ -836,6 +842,7 @@ ${autoRecs(c).slice(0,3).map(x=>"• "+x).join("\n")}`}
 function csvText(c,r){const m=r.meta;const h="fecha,tienda,ciudad,canal,categoria,promotora,marca,tipo,sos_pct,metros,metros_frente,frentes,pct_frentes,skus,niveles,ojos,bloque";return[h,...c.list.map(b=>[new Date(r.fecha).toISOString().slice(0,10),m.tienda,m.ciudad,m.canal,m.categoria,m.promotora,b.marca,b.own?"propia":"competencia",b.sos.toFixed(1),b.metros.toFixed(2),b.metrosFrente.toFixed(2),b.frentes,b.shareF.toFixed(1),b.skus,[...b.niveles].join("|"),b.ojos?1:0,b.bloque?1:0].map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(","))].join("\n")}
 
 /* ===================== guardar / historial ===================== */
+const ANALIZADOR="https://claude.ai/artifact/71xU2itWiV9JymtnpnEaB6";
 let rows=[],urlCache={};
 function rowToReport(row){const aj=row.ajustes||{};return{id:row.id,row,fecha:row.created_at,fotos:row.fotos||[],
   meta:{promotora:row.promotora||"",tienda:row.tienda,canal:row.canal||"",ciudad:row.ciudad||"",categoria:row.categoria||"",meta:aj.meta!=null?num(aj.meta):row.meta!=null?num(row.meta):cfg.meta,ancho:row.ancho?num(row.ancho):null,niveles:row.niveles||null,ojos:row.ojos||"auto"},
@@ -864,14 +871,14 @@ function renderHist(){
   histCharts.forEach(c=>c.destroy());histCharts=[];
   const body=$("#histBody");
   const pend=rows.filter(r=>r.estado!=="listo");
-  const pendHtml=pend.length?`<div class="card"><h3>En proceso o con error (${pend.length})</h3><div class="tscroll"><table><thead><tr><th>Fecha</th><th>Tienda</th><th>Promotora</th><th>Fotos</th><th>Estado</th><th></th></tr></thead><tbody>${pend.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</td><td><b>${esc(r.tienda)}</b></td><td>${esc(r.promotora||"—")}</td><td>${(r.fotos||[]).length}</td><td>${r.estado==="error"?`<span class="badge b-bad" title="${esc(r.error||"")}">Error</span><div class="mini" style="max-width:260px">${esc(r.error||"")}</div>`:`<span class="badge b-warn st-badge"><i class="st-dot"></i>${r.estado==="procesando"?"Analizando":"En cola"}</span>`}</td><td style="white-space:nowrap">${r.estado==="error"||r.estado==="pendiente"?`<button class="chip" data-retry="${esc(r.id)}">🔄 Reintentar</button> `:""}<button class="chip" data-delrow="${esc(r.id)}">🗑</button></td></tr>`).join("")}</tbody></table></div></div>`:"";
+  const pendHtml=pend.length?`<div class="card"><div class="rhead"><h3>En cola o con error (${pend.length})</h3><a class="btn pri" href="${ANALIZADOR}" target="_blank" rel="noopener" style="text-decoration:none">✨ Abrir Analizador en claude.ai</a></div><div class="tscroll"><table><thead><tr><th>Fecha</th><th>Tienda</th><th>Promotora</th><th>Fotos</th><th>Estado</th><th></th></tr></thead><tbody>${pend.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</td><td><b>${esc(r.tienda)}</b></td><td>${esc(r.promotora||"—")}</td><td>${(r.fotos||[]).length}</td><td>${r.estado==="error"?`<span class="badge b-bad" title="${esc(r.error||"")}">Error</span><div class="mini" style="max-width:260px">${esc(r.error||"")}</div>`:`<span class="badge b-warn st-badge"><i class="st-dot"></i>${r.estado==="procesando"?"Analizando":"En cola"}</span>`}</td><td style="white-space:nowrap">${r.estado==="error"||r.estado==="pendiente"?`<button class="chip" data-retry="${esc(r.id)}">🔄 Reintentar</button> `:""}<button class="chip" data-delrow="${esc(r.id)}">🗑</button></td></tr>`).join("")}</tbody></table></div></div>`:"";
   if(histState==="error"&&!rows.length){body.innerHTML=`<div class="card empty">No se pudo cargar el historial. <button class="btn ghost" onclick="loadHist()">Reintentar</button></div>`;return}
   if(histState==="loading"){body.innerHTML=`<div class="card empty"><div class="spin"></div>Cargando historial…</div>`;return}
   if(histState==="slow"&&!hist.length){body.innerHTML=`<div class="card empty">No se puede conectar con el historial todavía. Revisa tu conexión.</div>`;return}
   if(histState==="error"&&!hist.length){body.innerHTML=`<div class="card empty">No se pudo cargar el historial.</div>`;return}
   const F=filtered();
   $("#histSub").textContent=`${F.length} auditoría(s) en el filtro · ${hist.length} en total`;
-  const wire=()=>{$$("[data-retry]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await SOS.analyze(b.dataset.retry);toast("Analizando…");}catch(e){toast(e.message)}loadHist()});$$("[data-delrow]").forEach(b=>b.onclick=async()=>{const r=rows.find(x=>x.id===b.dataset.delrow);if(!r||!confirm("¿Eliminar este envío y sus fotos?"))return;try{await SOS.remove(r);toast("Eliminado")}catch(e){toast("No se pudo eliminar")}loadHist()})};
+  const wire=()=>{$$("[data-retry]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await SOS.analyze(b.dataset.retry);toast(r?.modo==="manual"?"Se analiza desde el Analizador en claude.ai":"Analizando…");}catch(e){toast(e.message)}loadHist()});$$("[data-delrow]").forEach(b=>b.onclick=async()=>{const r=rows.find(x=>x.id===b.dataset.delrow);if(!r||!confirm("¿Eliminar este envío y sus fotos?"))return;try{await SOS.remove(r);toast("Eliminado")}catch(e){toast("No se pudo eliminar")}loadHist()})};
   if(!F.length){body.innerHTML=pendHtml+`<div class="card empty">📭 Aún no hay análisis terminados${hist.length?" con estos filtros":""}.<br>Cuando una promotora envíe fotos desde el portal, aparecerán aquí.</div>`;wire();return}
   const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
   const tiendas=[...new Set(F.map(h=>h.meta?.tienda||"—"))];

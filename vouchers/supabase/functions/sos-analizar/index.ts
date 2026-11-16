@@ -126,6 +126,9 @@ Deno.serve(async (req) => {
   const id = String(body?.id || "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id inválido" }, 400);
 
+  // Sin clave de API: el envío queda en cola y se analiza desde el Analizador de claude.ai
+  if (!Deno.env.get("ANTHROPIC_API_KEY")) return json({ ok: true, estado: "pendiente", modo: "manual" }, 202);
+
   const admin = await isAdmin(req);
   const { data: row } = await sb.from("sos_analisis").select("id,estado,intentos,created_at").eq("id", id).maybeSingle();
   if (!row) return json({ error: "No existe el análisis" }, 404);

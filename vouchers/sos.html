@@ -158,7 +158,7 @@
         try {
           await SOS.submit(meta, photos, "promotora");
           store.set("v_tienda", meta.tienda); store.set("v_tienda_dia", hoy); store.set("v_promotora", meta.promotora); store.set("sos_categoria", meta.categoria);
-          $("okText").textContent = `Góndola de ${meta.categoria} en ${meta.tienda}. Marketing recibirá el análisis en unos minutos.`;
+          $("okText").textContent = `Góndola de ${meta.categoria} en ${meta.tienda}. Marketing revisará el análisis.`;
           $("formView").classList.add("hidden"); $("okView").classList.remove("hidden"); window.scrollTo({ top: 0 });
         } catch (err) {
           $("formError").textContent = err.message + " Revisa tu conexión e inténtalo de nuevo.";

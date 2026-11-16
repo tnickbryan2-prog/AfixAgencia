@@ -65,7 +65,15 @@
         ojos: meta.ojos || "auto", calidad: photos.map((p) => p.q || []), dispositivo: navigator.userAgent.slice(0, 180),
       });
       if (ins.error) throw new Error("No se pudo guardar el envío: " + ins.error.message);
-      await SOS.analyze(id).catch(() => {});
+      // Copia liviana en base64 para el Analizador de claude.ai (lee por SQL)
+      for (let i = 0; i < photos.length; i++) {
+        const img = await loadImg(photos[i].url); const r = await resize(img, 1280, .8);
+        const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(r.blob); });
+        const f = await c.from("sos_fotos").insert({ analisis_id: id, idx: i + 1, mime: "image/jpeg", b64 });
+        if (f.error) throw new Error("No se pudo guardar la foto " + (i + 1) + ": " + f.error.message);
+      }
+      SOS.lastModo = null;
+      try { const r = await SOS.analyze(id); SOS.lastModo = r?.modo || "auto"; } catch {}
       return id;
     },
     async analyze(id, force = false) {
