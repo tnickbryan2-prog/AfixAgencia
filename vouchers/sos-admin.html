@@ -373,7 +373,7 @@ function isOwnName(name,list){const n=norm(name);if(!n)return false;return list.
 
 /* ===================== navegación ===================== */
 function show(v){$$(".tab").forEach(t=>t.classList.toggle("on",t.dataset.v===v));$$(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));if(EMBED){try{window.frameElement.scrollIntoView({behavior:"smooth"})}catch(e){}}else window.scrollTo({top:0,behavior:"smooth"});if(v==="historial")renderHist()}
-$$(".tab").forEach(t=>t.onclick=()=>!t.disabled&&show(t.dataset.v));
+$$(".tab").forEach(t=>t.onclick=()=>{if(t.disabled)return;if(t.dataset.v==="reporte"&&!cur&&hist.length){openReport(rowToReport(hist[0].row));return}show(t.dataset.v)});
 
 /* ===================== fotos ===================== */
 let photos=[];// {blob,url,w,h}
@@ -852,6 +852,7 @@ async function loadHist(){
   try{rows=await SOS.list();histState="ok"}catch(e){histState="error"}
   hist=rows.filter(r=>r.estado==="listo"&&r.ai).map(row=>{const r=rowToReport(row);let resumen=null;try{resumen=summarize(compute(r))}catch(e){}return{id:row.id,fecha:row.created_at,meta:r.meta,done:r.done,resumen,row}}).filter(h=>h.resumen);
   fillDatalists();renderHist();
+  $("#tabReporte").disabled=!cur&&!hist.length;$("#tabReporte").title=hist.length&&!cur?"Abre el último análisis":"";
   clearTimeout(window._poll);if(rows.some(r=>r.estado==="pendiente"||r.estado==="procesando"))window._poll=setTimeout(loadHist,15000);
 }
 let hist=[],histState="loading";
@@ -911,7 +912,7 @@ function renderHist(){
   histCharts.push(new Chart($("#hcStore"),{type:"bar",data:{labels:byStore.map(s=>s.t),datasets:[{label:"SoS propio",data:byStore.map(s=>+s.last.toFixed(1)),backgroundColor:byStore.map(s=>s.last>=s.meta?"#74119E":"#C93F3F"),borderRadius:6,barThickness:20}]},options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>{const s=byStore[x.dataIndex];return` ${f1(s.last)}% (meta ${f1(s.meta)}%) · ${f2(s.metros)} m · ${s.n} visita(s)`}}}},scales:{x:{max:100,ticks:{callback:v=>v+"%"},grid:{color:"#F1EEF5"}},y:{grid:{display:false}}}}}));
   const tr=[...F].reverse();
   const groups=tiendas.slice(0,6);
-  histCharts.push(new Chart($("#hcTrend"),{type:"line",data:{datasets:groups.map((t,i)=>({label:t,data:tr.filter(h=>(h.meta?.tienda||"—")===t).map(h=>({x:new Date(h.fecha).getTime(),y:+h.resumen.ownSos.toFixed(1)})),borderColor:[...OWN_COLORS,...COMP_COLORS][i],backgroundColor:[...OWN_COLORS,...COMP_COLORS][i],tension:.3,pointRadius:4}))},options:{maintainAspectRatio:false,parsing:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10}}},scales:{x:{type:"linear",ticks:{callback:v=>new Date(v).toLocaleDateString("es-PE",{day:"2-digit",month:"short"}),maxTicksLimit:6},grid:{display:false}},y:{min:0,max:100,ticks:{callback:v=>v+"%"},grid:{color:"#F1EEF5"}}}}}));
+  histCharts.push(new Chart($("#hcTrend"),{type:"line",data:{datasets:groups.map((t,i)=>({label:t,data:tr.filter(h=>(h.meta?.tienda||"—")===t).map(h=>({x:new Date(h.fecha).getTime(),y:+h.resumen.ownSos.toFixed(1)})),borderColor:[...OWN_COLORS,...COMP_COLORS][i],backgroundColor:[...OWN_COLORS,...COMP_COLORS][i],tension:.3,pointRadius:4}))},options:{maintainAspectRatio:false,parsing:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10}}},scales:{x:{type:"linear",...(()=>{const xs=tr.map(h=>new Date(h.fecha).getTime());const a=Math.min(...xs),b=Math.max(...xs);return b-a<7*864e5?{min:a-3*864e5,max:b+3*864e5}:{}})(),ticks:{callback:v=>new Date(v).toLocaleDateString("es-PE",{day:"2-digit",month:"short"}),maxTicksLimit:6},grid:{display:false}},y:{min:0,max:100,ticks:{callback:v=>v+"%"},grid:{color:"#F1EEF5"}}}}}));
   histCharts.push(new Chart($("#hcComp"),{type:"bar",data:{labels:compArr.map(x=>x.m),datasets:[{data:compArr.map(x=>+x.avg.toFixed(1)),backgroundColor:compArr.map((x,i)=>x.o?OWN_COLORS[0]:COMP_COLORS[i%COMP_COLORS.length]),borderRadius:6,barThickness:18}]},options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>` ${f1(x.raw)}% promedio · presente en ${compArr[x.dataIndex].n} góndola(s)`}}},scales:{x:{ticks:{callback:v=>v+"%"},grid:{color:"#F1EEF5"}},y:{grid:{display:false}}}}}));
 }
 $("#btnRefresh").onclick=()=>loadHist();

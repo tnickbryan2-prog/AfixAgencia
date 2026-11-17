@@ -366,7 +366,7 @@
         const fr = $("sosFrame");
         if (fr.dataset.loaded) return;
         fr.dataset.loaded = "1";
-        fr.src = "sos-admin.html?embed=1&v=18";
+        fr.src = "sos-admin.html?embed=1&v=19";
         fr.addEventListener("load", () => {
           const doc = fr.contentDocument;
           const fit = () => { const h = Math.ceil(doc.body.getBoundingClientRect().height) + 24; if (Math.abs(parseInt(fr.style.height || 0, 10) - h) > 4) fr.style.height = Math.max(600, h) + "px"; };
