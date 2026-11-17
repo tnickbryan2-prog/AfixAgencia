@@ -92,8 +92,8 @@ supabase/schema.sql Tabla, bucket de fotos y seguridad
 
 - **Carga:** admin → pestaña **Precios** → botón **📥 Cargar ventas por SKU** (o la tarjeta *Ventas Sodimac por SKU y tienda* al final). Se sube el Excel crudo mensual (hoja tipo `DATA VS PROM`: una fila por tienda × SKU).
   - Columnas reconocidas: `Tienda` (ej. `2 - Sodimac San Miguel`), `SKU`, `Descripción Producto`, `Cod. Tienda`, `Afix`, `Activo` (las filas con `No` se ignoran).
-  - Meses abreviados antes de `Total general`/`Promedio` (Ene, Feb, … Sept, Oct) = venta mensual. Se ordenan por calendario aunque vengan desordenados.
-  - Meses con nombre completo después de `Promedio` (Octubre, Noviembre) = **avance del mes en curso**.
+  - Meses abreviados antes de `Total general`/`Promedio` (Ene, Feb, … Sept, Oct) = venta mensual **Oatey** por SKU Sodimac. Se ordenan por calendario aunque vengan desordenados.
+  - Meses con nombre completo después de `Promedio` (Octubre, Noviembre, de la hoja AVANCE AFIX) = venta **Afix** del producto equivalente (avance a la fecha de corte).
   - El último mes se marca como **parcial** si vende menos del 60% de la mediana; se puede corregir en la vista previa antes de guardar.
 - **Guardado:** tabla `ventas_cargas` (Supabase, solo admins). Cada carga queda en el historial y se puede eliminar.
-- **Análisis tiendas:** KPIs, resumen automático, venta mensual, activación vs. tiendas sin activación (según `TIENDAS` de `config.js`), ranking de tiendas, mix de SKUs, mapa tienda × SKU, posibles quiebres y exportación CSV.
+- **Análisis tiendas (Afix vs. Oatey):** Afix del mes como % del mes promedio Oatey y participación estimada, resumen automático, gráfico mensual de ambas marcas, activación vs. tiendas sin activación (según `TIENDAS` de `config.js`), comparativo por tienda y por producto, mapa tienda × producto, combinaciones donde Afix no vende y Oatey sí, y exportación CSV.

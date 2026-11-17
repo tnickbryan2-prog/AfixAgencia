@@ -1,7 +1,7 @@
 // =====================================================================
 //  Ventas Sodimac por SKU y tienda (Excel mensual, carga manual)
 //   · VentasUpload  → botón y historial de cargas en la pestaña Precios
-//   · TiendasAdmin  → pestaña "Análisis tiendas" del admin
+//   · TiendasAdmin  → pestaña "Análisis tiendas" del admin (Afix vs. Oatey)
 // =====================================================================
 (function () {
   const CFG = window.APP_CONFIG;
@@ -147,9 +147,9 @@
         <div class="ind-toolbar" style="margin-bottom:12px">
           <div class="field"><label for="vAnio">Año de los datos</label><input id="vAnio" type="number" min="2020" max="2100" value="${preview.anio}" /></div>
         </div>
-        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Mes</th><th>Columna en Excel</th><th class="num">Unidades</th><th>¿Mes incompleto?</th></tr></thead><tbody>
-          ${p.meses.map((m, k) => `<tr><td><strong>${m.lbl}</strong></td><td class="muted">${esc(m.head)}</td><td class="num">${fmt(tot[k])}</td><td><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" data-parc="${k}"${m.parcial ? " checked" : ""}/> parcial (corte a mitad de mes)</label></td></tr>`).join("")}
-          ${p.avance.map((a, k) => `<tr><td><strong>Avance ${a.lbl}</strong></td><td class="muted">${esc(a.lbl)}</td><td class="num">${fmt(sum(p.filas.map((f) => f.a[k])))}</td><td class="muted">Mes en curso</td></tr>`).join("")}
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Marca · mes</th><th>Columna en Excel</th><th class="num">Unidades</th><th>¿Mes incompleto?</th></tr></thead><tbody>
+          ${p.meses.map((m, k) => `<tr><td><strong>Oatey ${m.lbl}</strong></td><td class="muted">${esc(m.head)}</td><td class="num">${fmt(tot[k])}</td><td><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" data-parc="${k}"${m.parcial ? " checked" : ""}/> parcial (corte a mitad de mes)</label></td></tr>`).join("")}
+          ${p.avance.map((a, k) => `<tr><td><strong>Afix ${a.lbl}</strong></td><td class="muted">${esc(a.lbl)}</td><td class="num">${fmt(sum(p.filas.map((f) => f.a[k])))}</td><td class="muted">Avance a la fecha</td></tr>`).join("")}
         </tbody></table></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
           <button class="btn btn-ghost" id="vCancel">Cancelar</button>
@@ -157,7 +157,7 @@
         </div>`;
     } else {
       body = `
-        <p class="small muted" style="margin:0 0 12px">Sube cada mes el Excel crudo de venta Sodimac (una fila por tienda × SKU con columnas Ene, Feb, …). Se guarda en el historial y el resumen aparece en la pestaña <b>Análisis tiendas</b>.</p>
+        <p class="small muted" style="margin:0 0 12px">Sube cada mes el Excel crudo de venta Sodimac (una fila por tienda × SKU): meses Ene, Feb, … = venta Oatey; columnas de avance (Octubre, Noviembre…) = venta Afix. Se guarda en el historial y el resumen aparece en la pestaña <b>Análisis tiendas</b>.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" id="vPick">📥 Cargar Excel de ventas por SKU</button>
           <input type="file" id="vFile" accept=".xlsx,.xls,.xlsm,.csv" class="hidden" />
@@ -201,7 +201,7 @@
     const { p, file, anio } = preview;
     const first = p.meses[0], last = p.meses[p.meses.length - 1];
     const periodo = `${first.lbl}–${last.lbl}${last.parcial ? " (parcial)" : ""} ${anio}`;
-    const datos = { v: 1, anio, hoja: p.hoja, meses: p.meses.map(({ i, lbl, parcial }) => ({ i, lbl, parcial })), avance: p.avance, filas: p.filas };
+    const datos = { v: 1, anio, hoja: p.hoja, marcas: { base: "Oatey", propia: "Afix" }, meses: p.meses.map(({ i, lbl, parcial }) => ({ i, lbl, parcial })), avance: p.avance, filas: p.filas };
     saving = true; renderUpload();
     try {
       await API.addVentasCarga({ archivo: file, anio, periodo, filas: p.filas.length, datos });
@@ -222,106 +222,101 @@
   // =====================================================================
   let el = null;
   const st = { carga: null, alcance: "", tienda: "" };
+  // En el Excel "DATA VS PROM": meses Ene–Oct = venta OATEY por SKU Sodimac;
+  // columnas de avance (Octubre, Noviembre, desde la hoja AVANCE AFIX) = venta AFIX del producto equivalente.
+  const marcas = (D) => ({ base: (D.marcas && D.marcas.base) || "Oatey", propia: (D.marcas && D.marcas.propia) || "Afix" });
 
   function analyze(D) {
-    const meses = D.meses, full = meses.map((m, k) => (m.parcial ? null : k)).filter((k) => k != null);
+    const meses = D.meses, afx = D.avance || [];
+    const full = meses.map((m, k) => (m.parcial ? null : k)).filter((k) => k != null);
     const lastFull = full[full.length - 1];
+    const nA = afx.length, LA = nA - 1, PA = nA - 2;
     let F = D.filas.map((f) => ({ ...f, act: enActivacion(f.t) }));
     const tiendasAll = [...new Set(F.map((f) => f.t))];
     if (st.alcance === "act") F = F.filter((f) => f.act);
     if (st.alcance === "ctrl") F = F.filter((f) => !f.act);
     if (st.tienda) F = F.filter((f) => f.t === st.tienda);
 
-    const totMes = meses.map((_, k) => sum(F.map((f) => f.m[k])));
-    const totFull = sum(full.map((k) => totMes[k]));
-    const prom = full.length ? totFull / full.length : 0;
-    const win = (arr, k0, n) => { const ks = full.filter((k) => k <= k0).slice(-n); return ks.length ? sum(ks.map((k) => arr[k])) / ks.length : null; };
-    const l3 = (arr) => win(arr, lastFull, 3);
-    const p3 = (arr) => { const ks = full.slice(-6, -3); return ks.length ? sum(ks.map((k) => arr[k])) / ks.length : null; };
-    const trend = (arr) => { const a = l3(arr), b = p3(arr); return a != null && b ? a / b - 1 : null; };
-
-    const groupBy = (keyF, labelF) => {
-      const g = {};
-      F.forEach((f) => { const k = keyF(f); const x = g[k] = g[k] || { k, lbl: labelF(f), act: f.act, m: meses.map(() => 0), a: (D.avance || []).map(() => 0), filas: [] }; f.m.forEach((v, i) => (x.m[i] += v)); f.a.forEach((v, i) => (x.a[i] += v)); x.filas.push(f); });
-      return Object.values(g).map((x) => {
-        const t = sum(full.map((k) => x.m[k])), p = full.length ? t / full.length : 0;
-        return { ...x, tot: t, prom: p, last: lastFull != null ? x.m[lastFull] : null, vsProm: p && lastFull != null ? x.m[lastFull] / p - 1 : null, trend: trend(x.m), share: totFull ? t / totFull : 0, avPct: x.a.map((v) => (p ? v / p : null)) };
-      }).sort((a, b) => b.tot - a.tot);
+    const avgFull = (m) => (full.length ? sum(full.map((k) => m[k])) / full.length : 0);
+    const trend = (m) => { const a = full.slice(-3), b = full.slice(-6, -3); if (!a.length || !b.length) return null; const x = sum(a.map((k) => m[k])) / a.length, y = sum(b.map((k) => m[k])) / b.length; return y ? x / y - 1 : null; };
+    const stats = (m, a) => {
+      const oProm = avgFull(m), aLast = nA ? a[LA] : null, aPrev = nA > 1 ? a[PA] : null;
+      return { oTot: sum(full.map((k) => m[k])), oProm, oLast: lastFull != null ? m[lastFull] : null, oTrend: trend(m), aLast, aPrev,
+        aGrow: aPrev ? aLast / aPrev - 1 : null, ratio: oProm ? aLast / oProm : null, ratioPrev: oProm && aPrev != null ? aPrev / oProm : null,
+        share: aLast != null && aLast + oProm ? aLast / (aLast + oProm) : null, gap: oProm - (aLast || 0) };
     };
-    const tiendas = groupBy((f) => f.t, (f) => (f.ct ? f.ct + " - " : "") + f.t);
-    const skus = groupBy((f) => f.sku, (f) => f.d);
+    const group = (keyF, labelF) => {
+      const g = {};
+      F.forEach((f) => { const k = keyF(f); const x = g[k] = g[k] || { k, lbl: labelF(f), act: f.act, cod: f.cod, m: meses.map(() => 0), a: afx.map(() => 0), filas: [] }; f.m.forEach((v, i) => (x.m[i] += v)); f.a.forEach((v, i) => (x.a[i] += v)); x.filas.push(f); });
+      return Object.values(g).map((x) => ({ ...x, ...stats(x.m, x.a) }));
+    };
+    const tot = { m: meses.map((_, k) => sum(F.map((f) => f.m[k]))), a: afx.map((_, i) => sum(F.map((f) => f.a[i]))) };
+    Object.assign(tot, stats(tot.m, tot.a));
+    const tiendas = group((f) => f.t, (f) => (f.ct ? f.ct + " - " : "") + f.t).sort((a, b) => (b.ratio ?? -1) - (a.ratio ?? -1));
+    const skus = group((f) => f.sku, (f) => f.d).sort((a, b) => b.oProm - a.oProm);
 
-    // Activación vs. resto (con todas las tiendas, sin filtro de alcance)
     const all = D.filas.map((f) => ({ ...f, act: enActivacion(f.t) }));
-    const grp = (flag) => { const xs = all.filter((f) => f.act === flag); const p = full.length ? sum(xs.flatMap((f) => full.map((k) => f.m[k]))) / full.length : 0; return { n: new Set(xs.map((f) => f.t)).size, prom: p, av: (D.avance || []).map((_, i) => sum(xs.map((f) => f.a[i]))), trend: trend(meses.map((_, k) => sum(xs.map((f) => f.m[k])))) }; };
+    const grp = (flag) => { const xs = all.filter((f) => f.act === flag); const m = meses.map((_, k) => sum(xs.map((f) => f.m[k]))), a = afx.map((_, i) => sum(xs.map((f) => f.a[i]))); return { n: new Set(xs.map((f) => f.t)).size, ...stats(m, a), a }; };
     const actVs = { act: grp(true), ctrl: grp(false) };
 
-    // Quiebres: tienda × SKU sin venta en alguno de los últimos 3 meses completos
-    const ult3 = full.slice(-3);
-    const quiebres = F.map((f) => ({ f, ceros: ult3.filter((k) => !f.m[k]).map((k) => meses[k].lbl), prom: full.length ? sum(full.map((k) => f.m[k])) / full.length : 0 }))
-      .filter((x) => x.ceros.length).sort((a, b) => b.prom - a.prom);
-
-    return { meses, full, lastFull, totMes, totFull, prom, trendTot: trend(totMes), tiendas, skus, actVs, quiebres, tiendasAll, av: D.avance || [], avTot: (D.avance || []).map((_, i) => sum(F.map((f) => f.a[i]))) };
+    // Afix sin venta (último mes) donde Oatey sí vende
+    const sinAfix = nA ? F.map((f) => ({ f, oProm: avgFull(f.m), aLast: f.a[LA] })).filter((x) => !x.aLast && x.oProm >= 3).sort((a, b) => b.oProm - a.oProm) : [];
+    return { meses, afx, full, lastFull, LA, PA, tot, tiendas, skus, actVs, sinAfix, tiendasAll, avgFull };
   }
 
-  function insights(A) {
-    const out = [], M = (k) => A.meses[k].lbl;
-    if (A.lastFull != null) out.push(`<b>Venta acumulada:</b> ${fmt(A.totFull)} u. en ${A.full.length} meses completos (${M(A.full[0])}–${M(A.lastFull)}), promedio ${fmt(A.prom)} u./mes. ${M(A.lastFull)} cerró en ${fmt(A.totMes[A.lastFull])} u. (${pct(A.totMes[A.lastFull] / A.prom - 1)} vs. promedio).`);
-    if (A.trendTot != null) out.push(`<b>Tendencia:</b> últimos 3 meses ${pct(A.trendTot)} frente a los 3 anteriores.`);
-    const parc = A.meses.findIndex((m) => m.parcial);
-    if (parc >= 0) out.push(`<b>${M(parc)} es parcial:</b> lleva ${fmt(A.totMes[parc])} u. (${pct(A.totMes[parc] / A.prom, false)} de un mes promedio); no se compara con meses completos.`);
-    if (A.tiendas.length > 1) {
-      const top = A.tiendas[0], top3 = A.tiendas.slice(0, 3), low = A.tiendas[A.tiendas.length - 1];
-      out.push(`<b>Concentración:</b> ${top3.map((t) => esc(t.k)).join(", ")} suman ${pct(sum(top3.map((t) => t.share)), false)} de la venta. La de menor venta es ${esc(low.k)} (${fmt(low.prom)} u./mes).`);
-      const up = A.tiendas.filter((t) => t.trend != null).sort((a, b) => b.trend - a.trend);
-      if (up.length > 2) out.push(`<b>Crecen más:</b> ${up.slice(0, 2).map((t) => `${esc(t.k)} (${pct(t.trend)})`).join(", ")}. <b>Caen más:</b> ${up.slice(-2).reverse().map((t) => `${esc(t.k)} (${pct(t.trend)})`).join(", ")}.`);
+  function insights(A, MK) {
+    const out = [], O = MK.base, X = MK.propia, nA = A.afx.length, T = A.tot;
+    if (nA) {
+      const L = A.afx[A.LA].lbl;
+      out.push(`<b>${X} ${L}:</b> ${fmt(T.aLast)} u. a la fecha de corte, equivalente al ${pct(T.ratio, false)} de lo que ${O} vende en un mes promedio (${fmt(T.oProm)} u.). Participación estimada de ${X}: <b>${pct(T.share, false)}</b>.${nA > 1 ? ` En ${A.afx[A.PA].lbl} fue ${fmt(T.aPrev)} u. (${pct(T.ratioPrev, false)} de ${O}); crecimiento ${pct(T.aGrow)}.` : ""}`);
     }
-    if (A.skus.length > 1) {
-      const s = A.skus, cae = s.filter((x) => x.trend != null && x.trend < -0.1 && x.share > 0.02);
-      out.push(`<b>Mix:</b> ${esc(shortSku(s[0].lbl))} (${pct(s[0].share, false)}) y ${esc(shortSku(s[1].lbl))} (${pct(s[1].share, false)}) explican ${pct(s[0].share + s[1].share, false)} de la venta.${cae.length ? ` En caída: ${cae.map((x) => `${esc(shortSku(x.lbl))} (${pct(x.trend)})`).join(", ")}.` : ""}`);
+    if (A.lastFull != null) out.push(`<b>${O} (referencia):</b> ${fmt(T.oProm)} u./mes en ${A.full.length} meses completos; tendencia 3 meses ${pct(T.oTrend)}. ${A.meses[A.lastFull].lbl} cerró en ${fmt(T.oLast)} u.${A.meses.some((m) => m.parcial) ? ` ${A.meses.find((m) => m.parcial).lbl} es parcial y no se compara.` : ""}`);
+    const ts = A.tiendas.filter((t) => t.ratio != null);
+    if (nA && ts.length > 2) {
+      out.push(`<b>Dónde ${X} compite mejor:</b> ${ts.slice(0, 3).map((t) => `${esc(t.k)} (${pct(t.ratio, false)} de ${O})`).join(", ")}. <b>Más rezagadas:</b> ${ts.slice(-3).reverse().map((t) => `${esc(t.k)} (${pct(t.ratio, false)})`).join(", ")}.`);
     }
-    const { act, ctrl } = A.actVs, n = A.av.length;
-    if (n && act.n && ctrl.n && act.prom && ctrl.prom) {
-      const ia = act.av[n - 1] / act.prom, ic = ctrl.av[n - 1] / ctrl.prom;
-      out.push(`<b>Avance ${A.av[n - 1].lbl}:</b> las ${act.n} tiendas con activación llevan ${pct(ia, false)} de su mes promedio vs. ${pct(ic, false)} en las ${ctrl.n} sin activación${n > 1 ? ` (en ${A.av[n - 2].lbl}: ${pct(act.av[n - 2] / act.prom, false)} vs. ${pct(ctrl.av[n - 2] / ctrl.prom, false)})` : ""}. Hipótesis: efecto de la activación; confirmar con la fecha de corte del avance.`);
+    if (nA && A.skus.length > 1) {
+      const s = A.skus.filter((x) => x.oProm >= 20), best = s.slice().sort((a, b) => b.ratio - a.ratio)[0], gap = A.skus.slice().sort((a, b) => b.gap - a.gap)[0];
+      if (best && gap) out.push(`<b>Por producto:</b> ${X} está más cerca de ${O} en ${esc(shortSku(best.lbl))} (${pct(best.ratio, false)}). La mayor brecha en unidades es ${esc(shortSku(gap.lbl))}: ${O} vende ${fmt(gap.oProm)} u./mes vs. ${fmt(gap.aLast)} de ${X}; es la principal oportunidad.`);
     }
-    if (A.quiebres.length) out.push(`<b>Posibles quiebres:</b> ${A.quiebres.length} combinaciones tienda × SKU sin venta en algún mes reciente; la más relevante es ${esc(shortSku(A.quiebres[0].f.d))} en ${esc(A.quiebres[0].f.t)} (${A.quiebres[0].ceros.join(", ")}).`);
+    const { act, ctrl } = A.actVs;
+    if (nA && act.n && ctrl.n && act.ratio != null && ctrl.ratio != null) out.push(`<b>Activación:</b> en las ${act.n} tiendas con activación ${X} llega al ${pct(act.ratio, false)} de ${O}, frente a ${pct(ctrl.ratio, false)} en las ${ctrl.n} sin activación${nA > 1 ? ` (en ${A.afx[A.PA].lbl}: ${pct(act.ratioPrev, false)} vs. ${pct(ctrl.ratioPrev, false)})` : ""}. Hipótesis: efecto de las promotoras; confirmar con la misma fecha de corte.`);
+    if (A.sinAfix.length) out.push(`<b>${X} sin venta donde ${O} sí vende:</b> ${A.sinAfix.length} combinaciones tienda × producto en ${A.afx[A.LA].lbl}; la más grande es ${esc(shortSku(A.sinAfix[0].f.d))} en ${esc(A.sinAfix[0].f.t)} (${O} ${fmt(A.sinAfix[0].oProm)} u./mes). Revisar stock y exhibición.`);
     return out;
   }
 
-  function chartMeses(A) {
-    const W = 720, H = 220, P = { l: 44, r: 12, t: 16, b: 26 }, n = A.meses.length;
-    const max = Math.max(1, ...A.totMes) * 1.12, bw = (W - P.l - P.r) / n;
+  function chart(A, MK) {
+    const W = 720, H = 230, P = { l: 44, r: 12, t: 18, b: 26 };
+    const idx = [...new Set([...A.meses.map((m) => m.i), ...A.afx.map((a) => a.i)])].sort((a, b) => a - b);
+    const oBy = {}, aBy = {}; A.meses.forEach((m, k) => (oBy[m.i] = { v: A.tot.m[k], parcial: m.parcial })); A.afx.forEach((a, k) => (aBy[a.i] = A.tot.a[k]));
+    const max = Math.max(1, ...idx.map((i) => Math.max(oBy[i]?.v || 0, aBy[i] || 0))) * 1.12, bw = (W - P.l - P.r) / idx.length;
     const y = (v) => H - P.b - (v / max) * (H - P.t - P.b);
     let g = "";
     for (let i = 0; i <= 4; i++) { const v = (max / 4) * i; g += `<line class="grid" x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`; }
-    A.meses.forEach((m, i) => {
-      const v = A.totMes[i], x = P.l + i * bw;
-      g += `<rect x="${x + bw * 0.16}" y="${y(v)}" width="${bw * 0.68}" height="${H - P.b - y(v)}" rx="3" class="bar${m.parcial ? " off" : i === A.lastFull ? " today" : ""}"><title>${m.lbl}${m.parcial ? " (parcial)" : ""}: ${fmt(v)} u.</title></rect>`;
-      g += `<text class="val" x="${x + bw / 2}" y="${y(v) - 4}" text-anchor="middle">${fmt(v)}</text><text class="axis" x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${m.lbl}${m.parcial ? "*" : ""}</text>`;
+    idx.forEach((i, n) => {
+      const x = P.l + n * bw, o = oBy[i], a = aBy[i], both = o && a != null, w = both ? bw * 0.36 : bw * 0.6;
+      if (o) { const xo = both ? x + bw * 0.12 : x + bw * 0.2; g += `<rect x="${xo}" y="${y(o.v)}" width="${w}" height="${H - P.b - y(o.v)}" rx="3" fill="${o.parcial ? "#d9d4dc" : "#9b93a3"}"><title>${MK.base} ${MES[i]}${o.parcial ? " (parcial)" : ""}: ${fmt(o.v)} u.</title></rect><text class="val" x="${xo + w / 2}" y="${y(o.v) - 4}" text-anchor="middle">${fmt(o.v)}</text>`; }
+      if (a != null) { const xa = both ? x + bw * 0.52 : x + bw * 0.2; g += `<rect x="${xa}" y="${y(a)}" width="${w}" height="${H - P.b - y(a)}" rx="3" fill="var(--purple)"><title>${MK.propia} ${MES[i]}: ${fmt(a)} u.</title></rect><text class="val" x="${xa + w / 2}" y="${y(a) - 4}" text-anchor="middle" fill="var(--purple)">${fmt(a)}</text>`; }
+      g += `<text class="axis" x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${MES[i]}${o && o.parcial ? "*" : ""}</text>`;
     });
-    if (A.prom) g += `<line class="goal" x1="${P.l}" x2="${W - P.r}" y1="${y(A.prom)}" y2="${y(A.prom)}"/><text class="goal-lbl" x="${W - P.r}" y="${y(A.prom) - 5}" text-anchor="end">Promedio ${fmt(A.prom)}</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Venta mensual">${g}</svg>`;
+    if (A.tot.oProm) g += `<line class="goal" x1="${P.l}" x2="${W - P.r}" y1="${y(A.tot.oProm)}" y2="${y(A.tot.oProm)}" style="stroke:#9b93a3"/><text class="axis" x="${W - P.r}" y="${y(A.tot.oProm) - 5}" text-anchor="end">Promedio ${MK.base} ${fmt(A.tot.oProm)}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${MK.base} vs ${MK.propia} por mes">${g}</svg>
+      <div class="small muted" style="display:flex;gap:16px;margin-top:6px"><span><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9b93a3"></span> ${MK.base}</span><span><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple)"></span> ${MK.propia}</span><span>* mes parcial</span></div>`;
   }
 
-  const spark = (vals, parcial) => {
-    const W = 90, H = 24, n = vals.length, max = Math.max(1, ...vals);
-    const pts = vals.map((v, i) => `${(i / Math.max(1, n - 1)) * (W - 4) + 2},${H - 2 - (v / max) * (H - 4)}`);
-    const solid = parcial ? pts.slice(0, -1) : pts;
-    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${solid.join(" ")}" fill="none" stroke="var(--purple)" stroke-width="1.6"/>${parcial && n > 1 ? `<polyline points="${pts.slice(-2).join(" ")}" fill="none" stroke="#cbb6d6" stroke-width="1.6" stroke-dasharray="3 2"/>` : ""}</svg>`;
-  };
+  const ratioPill = (r) => (r == null ? '<span class="muted">—</span>' : `<span class="pill ${r >= 0.25 ? "ok" : r >= 0.1 ? "warn" : "bad"}">${pct(r, false)}</span>`);
   const trendPill = (t) => (t == null ? '<span class="muted">—</span>' : `<span class="pill ${t > 0.05 ? "ok" : t < -0.05 ? "bad" : "muted"}">${pct(t)}</span>`);
+  const vsBar = (o, a, maxO) => `<div style="display:grid;gap:3px;min-width:120px"><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:${(o / maxO) * 100}%;background:#9b93a3"></div></div><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:${((a || 0) / maxO) * 100}%"></div></div></div>`;
 
-  function heat(A) {
-    const T = A.tiendas, S = A.skus.slice(0, 14);
+  function heat(A, MK) {
+    const T = A.tiendas.slice().sort((a, b) => b.oProm - a.oProm), S = A.skus.slice(0, 14);
     const cell = {}; T.forEach((t) => t.filas.forEach((f) => (cell[t.k + "|" + f.sku] = f)));
-    const val = (t, s) => { const f = cell[t.k + "|" + s.k]; return f && A.full.length ? sum(A.full.map((k) => f.m[k])) / A.full.length : null; };
     return `<div class="table-wrap"><table class="ind-table heat"><thead><tr><th>Tienda</th>${S.map((s) => `<th class="num" title="${esc(s.lbl)}">${esc(shortSku(s.lbl).replace(/^Pvc\s+/i, "").replace(/^Soldadura Pvc\s+/i, "Sold. "))}</th>`).join("")}</tr></thead><tbody>
       ${T.map((t) => `<tr><td class="nowrap"><strong>${esc(t.k)}</strong></td>${S.map((s) => {
-        const v = val(t, s); if (v == null) return '<td class="num muted">—</td>';
-        const r = s.prom && T.length ? v / (s.prom / T.length) : 0; // vs. promedio de tienda para ese SKU
-        const bg = r >= 1.3 ? "#74119e" : r >= 1.05 ? "#a46bc0" : r >= 0.8 ? "#dcc8e7" : r >= 0.5 ? "#f3e8f8" : "#fdecec";
-        return `<td class="num" style="background:${bg};color:${r >= 1.05 ? "#fff" : "inherit"}" title="${esc(t.k)} · ${esc(s.lbl)}: ${v.toFixed(1)} u./mes (${pct(r - 1)} vs. tienda promedio)">${v < 10 ? v.toFixed(1) : fmt(v)}</td>`;
+        const f = cell[t.k + "|" + s.k]; if (!f) return '<td class="num muted">—</td>';
+        const o = A.avgFull(f.m), a = f.a[A.LA] || 0; if (!o) return `<td class="num muted">${a ? fmt(a) : "—"}</td>`;
+        const r = a / o, bg = r >= 0.4 ? "#74119e" : r >= 0.2 ? "#a46bc0" : r >= 0.1 ? "#dcc8e7" : r > 0 ? "#f3e8f8" : "#fdecec";
+        return `<td class="num" style="background:${bg};color:${r >= 0.2 ? "#fff" : "inherit"}" title="${esc(t.k)} · ${esc(s.lbl)}: ${MK.propia} ${fmt(a)} u. vs ${MK.base} ${o.toFixed(1)} u./mes">${Math.round(r * 100)}%</td>`;
       }).join("")}</tr>`).join("")}
     </tbody></table></div>`;
   }
@@ -334,18 +329,19 @@
       return;
     }
     const C = cargas.find((c) => c.id === st.carga) || cargas[0]; st.carga = C.id;
-    const A = analyze(C.datos);
-    const lastLbl = A.lastFull != null ? A.meses[A.lastFull].lbl : "—";
-    const nAv = A.av.length, avLbl = nAv ? A.av[nAv - 1].lbl : "";
-    const avTot = nAv ? A.avTot[nAv - 1] : null;
+    const MK = marcas(C.datos), O = MK.base, X = MK.propia;
+    const A = analyze(C.datos), T = A.tot, nA = A.afx.length;
+    const LL = nA ? A.afx[A.LA].lbl : "", PL = nA > 1 ? A.afx[A.PA].lbl : "";
     const { act, ctrl } = A.actVs;
+    const maxT = Math.max(1, ...A.tiendas.map((t) => Math.max(t.oProm, t.aLast || 0)));
+    const maxS = Math.max(1, ...A.skus.map((t) => Math.max(t.oProm, t.aLast || 0)));
 
     el.innerHTML = `
       <div class="kpis">
-        <div class="card kpi accent"><div class="lbl">Venta acumulada</div><div class="val">${fmt(A.totFull)}</div><div class="sub">unidades · ${A.full.length} meses completos ${C.datos.anio}</div></div>
-        <div class="card kpi"><div class="lbl">Promedio mensual</div><div class="val">${fmt(A.prom)}</div><div class="sub">${lastLbl}: ${fmt(A.lastFull != null ? A.totMes[A.lastFull] : null)} u. <span class="${A.lastFull != null && A.totMes[A.lastFull] >= A.prom ? "up" : "down"}">${A.lastFull != null ? pct(A.totMes[A.lastFull] / A.prom - 1) : ""}</span></div></div>
-        <div class="card kpi"><div class="lbl">Tendencia 3 meses</div><div class="val ${A.trendTot != null && A.trendTot < 0 ? "" : ""}">${pct(A.trendTot)}</div><div class="sub">últimos 3 vs. 3 anteriores</div></div>
-        <div class="card kpi warn"><div class="lbl">${nAv ? "Avance " + esc(avLbl) : "Tiendas"}</div><div class="val">${nAv ? fmt(avTot) : A.tiendas.length}</div><div class="sub">${nAv ? `${pct(A.prom ? avTot / A.prom : null, false)} de un mes promedio` : "con venta"}</div></div>
+        <div class="card kpi accent"><div class="lbl">${X} ${esc(LL)}</div><div class="val">${fmt(T.aLast)}</div><div class="sub">unidades a la fecha${nA > 1 ? ` · <span class="${T.aGrow >= 0 ? "up" : "down"}">${pct(T.aGrow)}</span> vs. ${esc(PL)}` : ""}</div></div>
+        <div class="card kpi"><div class="lbl">${O} promedio mensual</div><div class="val">${fmt(T.oProm)}</div><div class="sub">${A.full.length} meses completos · tendencia ${pct(T.oTrend)}</div></div>
+        <div class="card kpi"><div class="lbl">${X} vs. ${O}</div><div class="val">${pct(T.ratio, false)}</div><div class="sub">${X} ${esc(LL)} ÷ ${O} mes promedio</div></div>
+        <div class="card kpi warn"><div class="lbl">Participación ${X}</div><div class="val">${pct(T.share, false)}</div><div class="sub">${X} ÷ (${X} + ${O}) · estimada</div></div>
       </div>
 
       <div class="card panel ind-toolbar">
@@ -358,48 +354,45 @@
       </div>
 
       <div class="card panel">
-        <div class="panel-head"><h3>Resumen del análisis</h3><span class="muted">${esc(C.archivo)} · ${esc(C.periodo || "")}${st.alcance || st.tienda ? " · filtrado" : ""}</span></div>
-        <ul style="margin:0;padding-left:18px;line-height:1.55;font-size:14px">${insights(A).map((x) => `<li style="margin-bottom:6px">${x}</li>`).join("")}</ul>
+        <div class="panel-head"><h3>Resumen: ${X} vs. ${O}</h3><span class="muted">${esc(C.archivo)}${st.alcance || st.tienda ? " · filtrado" : ""}</span></div>
+        <ul style="margin:0;padding-left:18px;line-height:1.55;font-size:14px">${insights(A, MK).map((x) => `<li style="margin-bottom:6px">${x}</li>`).join("")}</ul>
       </div>
 
       <div class="card panel">
-        <div class="panel-head"><h3>Venta mensual (unidades)</h3><span class="muted">* mes parcial · línea = promedio de meses completos</span></div>
-        ${chartMeses(A)}
+        <div class="panel-head"><h3>${O} vs. ${X} por mes (unidades)</h3><span class="muted">${O}: venta mensual Sodimac · ${X}: avance a la fecha de corte</span></div>
+        ${chart(A, MK)}
       </div>
 
-      ${nAv && act.n && ctrl.n && !st.tienda ? `<div class="card panel">
-        <div class="panel-head"><h3>Activación vs. tiendas sin activación</h3><span class="muted">Avance del mes como % de su venta mensual promedio</span></div>
-        <div class="bars wide">${A.av.map((a, i) => [["Con activación (" + act.n + ")", act, i], ["Sin activación (" + ctrl.n + ")", ctrl, i]].map(([n, g]) => { const r = g.prom ? g.av[i] / g.prom : 0; return `<div class="bar-row"><span class="name">${esc(a.lbl)} · ${esc(n)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, r * 100)}%;${g === ctrl ? "background:#a46bc0" : ""}"></div></div><span class="n">${pct(r, false)}</span></div>`; }).join("")).join("")}</div>
-        <p class="small muted" style="margin:10px 0 0">Promedio mensual: con activación ${fmt(act.prom)} u. · sin activación ${fmt(ctrl.prom)} u. Tendencia 3m: ${pct(act.trend)} vs. ${pct(ctrl.trend)}. La comparación es válida solo si ambos avances tienen la misma fecha de corte.</p>
+      ${nA && act.n && ctrl.n && !st.tienda ? `<div class="card panel">
+        <div class="panel-head"><h3>Activación: ${X} como % de ${O}</h3><span class="muted">${X} del mes ÷ ${O} mes promedio, por grupo de tiendas</span></div>
+        <div class="bars wide">${A.afx.map((a, i) => [["Con activación (" + act.n + ")", act], ["Sin activación (" + ctrl.n + ")", ctrl]].map(([n, g]) => { const r = g.oProm ? g.a[i] / g.oProm : 0; return `<div class="bar-row"><span class="name">${esc(a.lbl)} · ${esc(n)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, r * 300)}%;${g === ctrl ? "background:#a46bc0" : ""}"></div></div><span class="n">${pct(r, false)}</span></div>`; }).join("")).join("")}</div>
+        <p class="small muted" style="margin:10px 0 0">${O} promedio: con activación ${fmt(act.oProm)} u./mes · sin activación ${fmt(ctrl.oProm)} u./mes. ${X} ${esc(LL)}: ${fmt(act.aLast)} vs. ${fmt(ctrl.aLast)} u. Barra a escala ×3 para que se vean las diferencias.</p>
       </div>` : ""}
 
       <div class="card panel">
-        <div class="panel-head"><h3>Ranking de tiendas</h3><span class="muted">Meses completos · tendencia = últimos 3 vs. 3 anteriores</span></div>
-        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th class="num">Total</th><th class="num">Prom./mes</th><th class="num">${esc(lastLbl)}</th><th class="num">vs. prom.</th><th class="num">Tendencia</th><th>Participación</th>${A.av.map((a) => `<th class="num">Avance ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th>Evolución</th></tr></thead><tbody>
-          ${A.tiendas.map((t) => `<tr><td><strong>${esc(t.lbl)}</strong>${t.act ? ' <span class="pill ok">activación</span>' : ""}</td><td class="num"><b>${fmt(t.tot)}</b></td><td class="num">${fmt(t.prom)}</td><td class="num">${fmt(t.last)}</td><td class="num">${trendPill(t.vsProm)}</td><td class="num">${trendPill(t.trend)}</td>
-            <td style="min-width:110px"><div class="bar-track"><div class="bar-fill" style="width:${(t.share / (A.tiendas[0].share || 1)) * 100}%"></div></div><span class="small muted">${pct(t.share, false)}</span></td>
-            ${t.a.map((v, i) => `<td class="num">${fmt(v)}<div class="small muted">${pct(t.avPct[i], false)}</div></td>`).join("")}<td>${spark(t.m, A.meses[A.meses.length - 1].parcial)}</td></tr>`).join("")}
+        <div class="panel-head"><h3>Tiendas: ${X} vs. ${O}</h3><span class="muted">Ordenado por ${X} como % de ${O} · gris = ${O} mes promedio, morado = ${X} ${esc(LL)}</span></div>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th class="num">${O} prom./mes</th><th class="num">Tend. ${O}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th class="num">Crec. ${X}</th><th>Comparativo</th><th class="num">${X} vs. ${O}</th><th class="num">Particip.</th></tr></thead><tbody>
+          ${A.tiendas.map((t) => `<tr><td><strong>${esc(t.lbl)}</strong>${t.act ? ' <span class="pill ok">activación</span>' : ""}</td><td class="num">${fmt(t.oProm)}</td><td class="num">${trendPill(t.oTrend)}</td>${t.a.map((v) => `<td class="num"><b>${fmt(v)}</b></td>`).join("")}<td class="num">${trendPill(t.aGrow)}</td><td>${vsBar(t.oProm, t.aLast, maxT)}</td><td class="num">${ratioPill(t.ratio)}</td><td class="num">${pct(t.share, false)}</td></tr>`).join("")}
         </tbody></table></div>
       </div>
 
       <div class="card panel">
-        <div class="panel-head"><h3>Mix de SKUs</h3><span class="muted">Participación en unidades · tendencia 3 meses</span></div>
-        <div class="table-wrap"><table class="ind-table"><thead><tr><th>SKU</th><th>Producto</th><th class="num">Total</th><th class="num">Prom./mes</th><th>Participación</th><th class="num">Tendencia</th>${A.av.map((a) => `<th class="num">Avance ${esc(a.lbl.slice(0, 3))}</th>`).join("")}</tr></thead><tbody>
-          ${A.skus.map((s) => `<tr><td class="small muted">${esc(s.k)}</td><td><strong>${esc(s.lbl)}</strong></td><td class="num"><b>${fmt(s.tot)}</b></td><td class="num">${fmt(s.prom)}</td>
-            <td style="min-width:120px"><div class="bar-track"><div class="bar-fill" style="width:${(s.share / (A.skus[0].share || 1)) * 100}%"></div></div><span class="small muted">${pct(s.share, false)}</span></td><td class="num">${trendPill(s.trend)}</td>${s.a.map((v) => `<td class="num">${fmt(v)}</td>`).join("")}</tr>`).join("")}
+        <div class="panel-head"><h3>Productos: ${X} vs. ${O}</h3><span class="muted">SKU Sodimac ${O} y su equivalente ${X} · ordenado por tamaño de ${O}</span></div>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Producto</th><th class="num">${O} prom./mes</th><th class="num">Tend. ${O}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th>Comparativo</th><th class="num">${X} vs. ${O}</th><th class="num">Brecha u./mes</th></tr></thead><tbody>
+          ${A.skus.map((s) => `<tr><td><strong>${esc(s.lbl)}</strong><div class="small muted">SKU ${esc(s.k)}${s.cod ? ` · cód. ${X} ${esc(s.cod)}` : ""}</div></td><td class="num">${fmt(s.oProm)}</td><td class="num">${trendPill(s.oTrend)}</td>${s.a.map((v) => `<td class="num"><b>${fmt(v)}</b></td>`).join("")}<td>${vsBar(s.oProm, s.aLast, maxS)}</td><td class="num">${ratioPill(s.ratio)}</td><td class="num">${fmt(Math.max(0, s.gap))}</td></tr>`).join("")}
         </tbody></table></div>
       </div>
 
-      ${A.tiendas.length > 1 ? `<div class="card panel">
-        <div class="panel-head"><h3>Mapa tienda × SKU</h3><span class="muted">Unidades promedio por mes · color vs. la tienda promedio en ese SKU (morado = sobre el promedio, rojo claro = muy por debajo)</span></div>
-        ${heat(A)}
+      ${nA && A.tiendas.length > 1 ? `<div class="card panel">
+        <div class="panel-head"><h3>Mapa tienda × producto: ${X} como % de ${O}</h3><span class="muted">${X} ${esc(LL)} ÷ ${O} mes promedio · morado ≥ 20% · lila 10–20% · rojo claro = ${X} sin venta</span></div>
+        ${heat(A, MK)}
       </div>` : ""}
 
       <div class="card panel">
-        <div class="panel-head"><h3>Posibles quiebres de venta</h3><span class="muted">Tienda × SKU sin venta en alguno de los últimos 3 meses completos</span></div>
-        ${A.quiebres.length ? `<div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th>Producto</th><th class="num">Prom./mes</th><th>Meses en cero</th></tr></thead><tbody>
-          ${A.quiebres.slice(0, 25).map((q) => `<tr><td>${esc(q.f.t)}</td><td>${esc(q.f.d)}</td><td class="num">${q.prom.toFixed(1)}</td><td>${q.ceros.map((c) => `<span class="pill bad">${c}</span>`).join(" ")}</td></tr>`).join("")}
-        </tbody></table></div>${A.quiebres.length > 25 ? `<p class="small muted">… y ${A.quiebres.length - 25} más (ver CSV).</p>` : ""}` : '<div class="empty">Sin meses en cero en los últimos 3 meses.</div>'}
+        <div class="panel-head"><h3>${X} sin venta donde ${O} sí vende</h3><span class="muted">${esc(LL)} · ${O} ≥ 3 u./mes · revisar stock, código activo y exhibición</span></div>
+        ${A.sinAfix.length ? `<div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th>Producto</th><th class="num">${O} prom./mes</th>${nA > 1 ? `<th class="num">${X} ${esc(PL)}</th>` : ""}</tr></thead><tbody>
+          ${A.sinAfix.slice(0, 30).map((q) => `<tr><td>${esc(q.f.t)}${q.f.act ? ' <span class="pill ok">activación</span>' : ""}</td><td>${esc(q.f.d)}</td><td class="num">${q.oProm.toFixed(1)}</td>${nA > 1 ? `<td class="num">${fmt(q.f.a[A.PA])}</td>` : ""}</tr>`).join("")}
+        </tbody></table></div>${A.sinAfix.length > 30 ? `<p class="small muted">… y ${A.sinAfix.length - 30} más (ver CSV).</p>` : ""}` : `<div class="empty">${X} vendió en todas las combinaciones donde ${O} vende.</div>`}
       </div>`;
 
     const $ = (id) => el.querySelector("#" + id);
@@ -409,13 +402,13 @@
     $("tReload").onclick = () => reload();
     $("tCsv").onclick = () => {
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const D = C.datos;
-      const head = ["Cod. tienda", "Tienda", "Activación", "SKU", "Cod. Afix", "Producto", ...D.meses.map((m) => m.lbl + (m.parcial ? " (parcial)" : "")), "Prom. meses completos", ...(D.avance || []).map((a) => "Avance " + a.lbl)];
-      const lines = D.filas.map((f) => [f.ct, f.t, enActivacion(f.t) ? "Sí" : "No", f.sku, f.cod, f.d, ...f.m, A.full.length ? (sum(A.full.map((k) => f.m[k])) / A.full.length).toFixed(1).replace(".", ",") : "", ...f.a].map(q).join(";"));
+      const D = C.datos, dec = (n) => (n == null || !isFinite(n) ? "" : String(Math.round(n * 1000) / 1000).replace(".", ","));
+      const head = ["Cod. tienda", "Tienda", "Activación", "SKU Sodimac", "Cod. " + X, "Producto", ...D.meses.map((m) => O + " " + m.lbl + (m.parcial ? " (parcial)" : "")), O + " prom. meses completos", ...(D.avance || []).map((a) => X + " " + a.lbl), X + " vs " + O];
+      const lines = D.filas.map((f) => { const o = A.avgFull(f.m), a = (D.avance || []).length ? f.a[f.a.length - 1] : null; return [f.ct, f.t, enActivacion(f.t) ? "Sí" : "No", f.sku, f.cod, f.d, ...f.m, dec(o), ...f.a, o ? dec(a / o) : ""].map(q).join(";"); });
       const csv = "﻿" + head.map(q).join(";") + "\n" + lines.join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      a.download = `ventas_sodimac_${(C.periodo || "").replace(/[^\w]+/g, "_")}.csv`;
+      a.download = `afix_vs_oatey_${(C.periodo || "").replace(/[^\w]+/g, "_")}.csv`;
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
   }
@@ -423,6 +416,6 @@
   window.TiendasAdmin = {
     mount(c) { el = c; listeners.add(render); },
     async show() { render(); await ensure(); },
-    _parseSheet: parseSheet, _analyze: analyze, _insights: insights, // para pruebas
+    _parseSheet: parseSheet, // para pruebas
   };
 })();
