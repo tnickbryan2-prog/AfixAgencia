@@ -79,6 +79,7 @@
         <div class="field"><label for="pWk">Semana</label><select id="pWk">${(m.weeks.length ? m.weeks : [st.wk]).map((w) => `<option value="${w}"${w === st.wk ? " selected" : ""}>${esc(weekLabel(w))}</option>`).join("")}</select></div>
         <div class="field"><label for="pTienda">Tienda</label><select id="pTienda"><option value="">Todas</option>${tiendasOpt.map((t) => `<option${t === st.tienda ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
         <div class="spacer"></div>
+        <button class="btn btn-ghost" id="pVentas" title="Subir el Excel mensual de venta Sodimac por SKU y tienda">📥 Cargar ventas por SKU</button>
         <button class="btn btn-ghost" id="pReload">Actualizar</button>
         <button class="btn btn-primary" id="pCsv">Exportar precios (CSV)</button>
       </div>
@@ -118,6 +119,7 @@
     $("pWk").onchange = (e) => { st.wk = e.target.value; render(); };
     $("pTienda").onchange = (e) => { st.tienda = e.target.value; render(); };
     $("pReload").onclick = () => reload();
+    $("pVentas").onclick = () => { const c = document.getElementById("ventasCard"); c?.scrollIntoView({ behavior: "smooth", block: "start" }); document.getElementById("vFile")?.click(); };
     el.querySelectorAll("[data-vdel]").forEach((b) => (b.onclick = async () => {
       const v = m.visitas.find((x) => x.id === b.dataset.vdel);
       if (!v || !confirm(`¿Eliminar el relevamiento de ${v.marca} en ${v.tienda} (${fd(v.fecha)}, ${v.n} SKUs)?`)) return;

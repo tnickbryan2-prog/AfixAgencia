@@ -309,7 +309,8 @@ tr:hover td { background: #fcfaFD; }
   .topbar p { display: none; }
   .topbar .spacer { flex: 1; }
   .tabs { order: 3; width: 100%; }
-  .tabs .tab { flex: 1; }
+  .tabs { flex-wrap: wrap; }
+  .tabs .tab { flex: 1 1 30%; padding: 8px 6px; }
   .ind-toolbar .field, .ind-toolbar .field input, .ind-toolbar .field select { width: 100%; }
 }
 
@@ -387,3 +388,8 @@ a.btn { text-decoration: none; }
 .tabs-form a { white-space: nowrap; }
 @media (max-width: 420px) { .tabs-form { gap: 3px; } .tabs-form a { font-size: 12px; padding: 10px 3px; } }
 @media (max-width: 340px) { .tabs-form a { font-size: 11px; } }
+
+/* Análisis tiendas */
+.ind-table.heat td, .ind-table.heat th { padding: 6px 8px; font-size: 12.5px; }
+.ind-table.heat th { white-space: nowrap; }
+.bars.wide .bar-row { grid-template-columns: minmax(150px, 260px) 1fr 44px; }

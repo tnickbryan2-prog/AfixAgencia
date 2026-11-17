@@ -85,3 +85,15 @@ supabase/schema.sql Tabla, bucket de fotos y seguridad
 - **Modo actual: Analizador en claude.ai** (sin API). Cada envío guarda además una copia de las fotos en base64 (`sos_fotos`); el Analizador (artefacto en claude.ai, usa el plan de Claude y el conector de Supabase) toma la cola, analiza y guarda el resultado en `sos_analisis`.
 - **IA automática (opcional):** Edge Function `sos-analizar` (código en `supabase/functions/sos-analizar/`). Lee las fotos, llama a la API de Claude y guarda el resultado. Se activa sola al agregar el secreto `ANTHROPIC_API_KEY` en Supabase → Edge Functions → Secrets; sin él, deja los envíos en cola.
 - **Límites:** cada envío de promotora se analiza una sola vez; máximo de análisis por hora configurable. El admin puede reintentar o reanalizar.
+
+---
+
+## Ventas Sodimac por SKU y pestaña "Análisis tiendas"
+
+- **Carga:** admin → pestaña **Precios** → botón **📥 Cargar ventas por SKU** (o la tarjeta *Ventas Sodimac por SKU y tienda* al final). Se sube el Excel crudo mensual (hoja tipo `DATA VS PROM`: una fila por tienda × SKU).
+  - Columnas reconocidas: `Tienda` (ej. `2 - Sodimac San Miguel`), `SKU`, `Descripción Producto`, `Cod. Tienda`, `Afix`, `Activo` (las filas con `No` se ignoran).
+  - Meses abreviados antes de `Total general`/`Promedio` (Ene, Feb, … Sept, Oct) = venta mensual. Se ordenan por calendario aunque vengan desordenados.
+  - Meses con nombre completo después de `Promedio` (Octubre, Noviembre) = **avance del mes en curso**.
+  - El último mes se marca como **parcial** si vende menos del 60% de la mediana; se puede corregir en la vista previa antes de guardar.
+- **Guardado:** tabla `ventas_cargas` (Supabase, solo admins). Cada carga queda en el historial y se puede eliminar.
+- **Análisis tiendas:** KPIs, resumen automático, venta mensual, activación vs. tiendas sin activación (según `TIENDAS` de `config.js`), ranking de tiendas, mix de SKUs, mapa tienda × SKU, posibles quiebres y exportación CSV.

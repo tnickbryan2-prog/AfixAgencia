@@ -267,6 +267,35 @@
       if (error) throw new Error(error.message);
     },
 
+    // ---------- Ventas Sodimac por SKU y tienda (Excel mensual cargado a mano) ----------
+    async listVentasCargas() {
+      if (CFG.DEMO) { try { return JSON.parse(localStorage.getItem("ventas_demo") || "[]"); } catch { return []; } }
+      const { data, error } = await client().from("ventas_cargas").select("*").order("created_at", { ascending: false }).limit(60);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    async addVentasCarga(row) {
+      if (CFG.DEMO) {
+        const cur = await API.listVentasCargas();
+        cur.unshift({ id: uuid(), created_at: new Date().toISOString(), creado_por: "demo", ...row });
+        localStorage.setItem("ventas_demo", JSON.stringify(cur.slice(0, 12)));
+        return;
+      }
+      const { error } = await client().from("ventas_cargas").insert(row);
+      if (error) throw new Error(error.message);
+    },
+
+    async deleteVentasCarga(id) {
+      if (CFG.DEMO) {
+        const cur = (await API.listVentasCargas()).filter((r) => r.id !== id);
+        localStorage.setItem("ventas_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("ventas_cargas").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+
     async deleteVoucher(row) {
       if (CFG.DEMO) { demo.write(demo.read().filter((r) => r.id !== row.id)); return; }
       const c = client();
