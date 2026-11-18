@@ -56,6 +56,11 @@ window.APP_CONFIG = {
     ],
   },
 
+  // Análisis tiendas (Afix vs. Oatey en Sodimac)
+  VENTAS: {
+    META_PARTICIPACION: 0.20,   // participación objetivo de Afix: Afix ÷ (Afix + Oatey)
+  },
+
   // Alerta de stock bajo cuando a una promotora le quedan esta cantidad o menos
   STOCK_MINIMO: 5,
 

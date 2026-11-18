@@ -286,6 +286,16 @@
       if (error) throw new Error(error.message);
     },
 
+    async updateVentasCarga(id, row) {
+      if (CFG.DEMO) {
+        const cur = (await API.listVentasCargas()).map((r) => (r.id === id ? { ...r, ...row } : r));
+        localStorage.setItem("ventas_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("ventas_cargas").update(row).eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+
     async deleteVentasCarga(id) {
       if (CFG.DEMO) {
         const cur = (await API.listVentasCargas()).filter((r) => r.id !== id);

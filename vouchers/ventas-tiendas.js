@@ -16,6 +16,8 @@
   const sum = (a) => a.reduce((x, y) => x + (Number(y) || 0), 0);
   const median = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0; };
   const shortSku = (d) => String(d || "").replace(/\.$/, "").replace(/^Pegamento\s+/i, "").replace(/\s+(Reg|Med)\.?$/i, "").trim();
+  const todayLima = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
+  const fdc = (k) => (k ? (() => { const d = new Date(String(k).slice(0, 10) + "T12:00:00"); return `${d.getDate()} ${MES[d.getMonth()].toLowerCase()} ${d.getFullYear()}`; })() : "sin fecha");
   const fdt = (iso) => new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
   // ---------- Carga perezosa de SheetJS ----------
@@ -114,7 +116,7 @@
   const listeners = new Set();
   async function reload() {
     loading = true; err = ""; listeners.forEach((f) => f());
-    try { cargas = await API.listVentasCargas(); loaded = true; } catch (e) { err = "No se pudieron leer las ventas: " + e.message; }
+    try { cargas = (await API.listVentasCargas()).sort((a, b) => String(b.corte || "").localeCompare(String(a.corte || "")) || String(b.created_at).localeCompare(String(a.created_at))); loaded = true; } catch (e) { err = "No se pudieron leer las ventas: " + e.message; }
     loading = false; listeners.forEach((f) => f());
   }
   const ensure = () => (!loaded && !loading ? reload() : Promise.resolve());
@@ -146,6 +148,8 @@
         ${p.ordenRaro ? `<div class="alert-item warn" style="margin-bottom:12px"><b>Ojo:</b><span>Las columnas de meses no venían en orden en el Excel; las ordené por calendario.</span></div>` : ""}
         <div class="ind-toolbar" style="margin-bottom:12px">
           <div class="field"><label for="vAnio">Año de los datos</label><input id="vAnio" type="number" min="2020" max="2100" value="${preview.anio}" /></div>
+          <div class="field"><label for="vCorte">Fecha de corte del avance Afix</label><input id="vCorte" type="date" value="${preview.corte}" /></div>
+          <p class="small muted" style="margin:0;max-width:340px">La fecha de corte permite proyectar el cierre del mes y comparar con la carga de la semana anterior.</p>
         </div>
         <div class="table-wrap"><table class="ind-table"><thead><tr><th>Marca · mes</th><th>Columna en Excel</th><th class="num">Unidades</th><th>¿Mes incompleto?</th></tr></thead><tbody>
           ${p.meses.map((m, k) => `<tr><td><strong>Oatey ${m.lbl}</strong></td><td class="muted">${esc(m.head)}</td><td class="num">${fmt(tot[k])}</td><td><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" data-parc="${k}"${m.parcial ? " checked" : ""}/> parcial (corte a mitad de mes)</label></td></tr>`).join("")}
@@ -157,24 +161,25 @@
         </div>`;
     } else {
       body = `
-        <p class="small muted" style="margin:0 0 12px">Sube cada mes el Excel crudo de venta Sodimac (una fila por tienda × SKU): meses Ene, Feb, … = venta Oatey; columnas de avance (Octubre, Noviembre…) = venta Afix. Se guarda en el historial y el resumen aparece en la pestaña <b>Análisis tiendas</b>.</p>
+        <p class="small muted" style="margin:0 0 12px">Sube cada semana el Excel crudo de venta Sodimac (una fila por tienda × SKU): meses Ene, Feb, … = venta Oatey; columnas de avance (Octubre, Noviembre…) = venta Afix. Se guarda en el historial y el resumen aparece en la pestaña <b>Análisis tiendas</b>.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" id="vPick">📥 Cargar Excel de ventas por SKU</button>
           <input type="file" id="vFile" accept=".xlsx,.xls,.xlsm,.csv" class="hidden" />
-          ${last ? `<span class="small muted">Última carga: <b>${esc(last.archivo)}</b> · ${esc(last.periodo || "")} · ${fdt(last.created_at)}</span>` : ""}
+          ${last ? `<span class="small muted">Última carga: <b>${esc(last.archivo)}</b> · corte ${fdc(last.corte)} · ${fdt(last.created_at)}</span>` : ""}
         </div>
         ${upMsg ? `<div class="alert-item ${upMsg.startsWith("✓") ? "info" : "bad"}" style="margin-top:12px"><span>${esc(upMsg)}</span></div>` : ""}
-        ${cargas.length ? `<div class="table-wrap" style="margin-top:14px"><table class="ind-table"><thead><tr><th>Fecha de carga</th><th>Archivo</th><th>Periodo</th><th class="num">Filas</th><th>Por</th><th></th></tr></thead><tbody>
-          ${cargas.map((c) => `<tr><td class="nowrap">${fdt(c.created_at)}</td><td>${esc(c.archivo)}</td><td>${esc(c.periodo || "")}</td><td class="num">${c.filas}</td><td class="small muted">${esc(c.creado_por || "")}</td>
+        ${cargas.length ? `<div class="table-wrap" style="margin-top:14px"><table class="ind-table"><thead><tr><th>Fecha de carga</th><th>Corte avance Afix</th><th>Archivo</th><th>Periodo</th><th class="num">Filas</th><th>Por</th><th></th></tr></thead><tbody>
+          ${cargas.map((c) => `<tr><td class="nowrap">${fdt(c.created_at)}</td><td><input type="date" data-corte="${esc(c.id)}" value="${esc(c.corte || "")}" style="height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px"${c.corte ? "" : ' title="Falta la fecha de corte"'} /></td><td>${esc(c.archivo)}</td><td>${esc(c.periodo || "")}</td><td class="num">${c.filas}</td><td class="small muted">${esc(c.creado_por || "")}</td>
             <td><button class="icon-btn" data-cdel="${esc(c.id)}" title="Eliminar esta carga"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`).join("")}
         </tbody></table></div>` : ""}`;
     }
-    upEl.innerHTML = `<div class="card panel" id="ventasCard"><div class="panel-head"><h3>Ventas Sodimac por SKU y tienda</h3><span class="muted">Carga manual mensual · solo admins</span></div>${loading && !loaded ? '<div class="empty">Cargando…</div>' : err ? `<div class="empty">${esc(err)}</div>` : body}</div>`;
+    upEl.innerHTML = `<div class="card panel" id="ventasCard"><div class="panel-head"><h3>Ventas Sodimac por SKU y tienda</h3><span class="muted">Carga manual semanal · solo admins</span></div>${loading && !loaded ? '<div class="empty">Cargando…</div>' : err ? `<div class="empty">${esc(err)}</div>` : body}</div>`;
 
     const $ = (id) => upEl.querySelector("#" + id);
     if (preview) {
       $("vCancel").onclick = () => { preview = null; renderUpload(); };
       $("vAnio").onchange = (e) => { preview.anio = parseInt(e.target.value, 10) || preview.anio; };
+      $("vCorte").onchange = (e) => { preview.corte = e.target.value || preview.corte; };
       upEl.querySelectorAll("[data-parc]").forEach((c) => (c.onchange = () => { preview.p.meses[+c.dataset.parc].parcial = c.checked; }));
       $("vSave").onclick = save;
     } else if ($("vPick")) {
@@ -185,10 +190,13 @@
         try {
           const p = await parseFile(f);
           const now = new Date(), y = now.getFullYear(), maxM = Math.max(...p.meses.map((m) => m.i));
-          upMsg = ""; preview = { p, file: f.name, anio: maxM > now.getMonth() + 1 ? y - 1 : y };
+          upMsg = ""; preview = { p, file: f.name, anio: maxM > now.getMonth() + 1 ? y - 1 : y, corte: todayLima() };
         } catch (ex) { upMsg = "No se pudo leer el archivo: " + ex.message; }
         renderUpload();
       };
+      upEl.querySelectorAll("[data-corte]").forEach((i) => (i.onchange = async () => {
+        try { await API.updateVentasCarga(i.dataset.corte, { corte: i.value || null }); await reload(); } catch (ex) { alert("No se pudo guardar la fecha: " + ex.message); }
+      }));
       upEl.querySelectorAll("[data-cdel]").forEach((b) => (b.onclick = async () => {
         const c = cargas.find((x) => x.id === b.dataset.cdel);
         if (!c || !confirm(`¿Eliminar la carga "${c.archivo}" (${c.periodo || ""})? El análisis usará la carga anterior.`)) return;
@@ -198,15 +206,16 @@
   }
 
   async function save() {
-    const { p, file, anio } = preview;
+    const { p, file, anio, corte } = preview;
     const first = p.meses[0], last = p.meses[p.meses.length - 1];
     const periodo = `${first.lbl}–${last.lbl}${last.parcial ? " (parcial)" : ""} ${anio}`;
-    const datos = { v: 1, anio, hoja: p.hoja, marcas: { base: "Oatey", propia: "Afix" }, meses: p.meses.map(({ i, lbl, parcial }) => ({ i, lbl, parcial })), avance: p.avance, filas: p.filas };
+    const datos = { v: 1, anio, corte, hoja: p.hoja, marcas: { base: "Oatey", propia: "Afix" }, meses: p.meses.map(({ i, lbl, parcial }) => ({ i, lbl, parcial })), avance: p.avance, filas: p.filas };
     saving = true; renderUpload();
     try {
-      await API.addVentasCarga({ archivo: file, anio, periodo, filas: p.filas.length, datos });
+      await API.addVentasCarga({ archivo: file, anio, periodo, corte, filas: p.filas.length, datos });
       preview = null; upMsg = `✓ Carga guardada (${periodo}). Ya puedes verla en Análisis tiendas.`;
       await reload();
+      st.carga = null; render();
       document.querySelector('#tabs .tab[data-tab="tiendas"]')?.click();
     } catch (e) { alert("No se pudo guardar: " + e.message); }
     saving = false; renderUpload();
@@ -222,16 +231,60 @@
   // =====================================================================
   let el = null;
   const st = { carga: null, alcance: "", tienda: "" };
+  const META = (CFG.VENTAS && CFG.VENTAS.META_PARTICIPACION) || 0.2;
   // En el Excel "DATA VS PROM": meses Ene–Oct = venta OATEY por SKU Sodimac;
   // columnas de avance (Octubre, Noviembre, desde la hoja AVANCE AFIX) = venta AFIX del producto equivalente.
   const marcas = (D) => ({ base: (D.marcas && D.marcas.base) || "Oatey", propia: (D.marcas && D.marcas.propia) || "Afix" });
+  const money = (n) => (n == null || !isFinite(n) ? "—" : "S/ " + Math.round(n).toLocaleString("es-PE"));
+  const pp = (n) => (n == null || !isFinite(n) ? "—" : (n > 0 ? "+" : "") + (n * 100).toFixed(1).replace(".", ",") + " pp");
+  const pct1 = (n) => (n == null || !isFinite(n) ? "—" : (n * 100).toFixed(1).replace(".", ",") + "%");
+  const shortT = (t) => String(t).replace(/^Sodimac\s+/i, "").replace(/^Maestro\s+(.+)$/i, "$1 (M)");
 
-  function analyze(D) {
-    const meses = D.meses, afx = D.avance || [];
+  // ---------- Precios (pestaña Precios) para valorizar en soles ----------
+  let precios = null, preciosLoading = false;
+  const skuKey = (s) => {
+    const n = nrm(s), oz = (n.match(/(\d+)\s*oz/) || [])[1];
+    const c = /cpvc|naranja/.test(n) ? "naranja" : /\baz(ul)?\b/.test(n) ? "azul" : /\bdor(ado)?\b/.test(n) ? "dorado" : /\bneg(ro)?\b/.test(n) ? "negro" : "";
+    return oz && c ? `${oz}|${c}` : null;
+  };
+  function priceMap(rows) {
+    const lim = new Date(); lim.setDate(lim.getDate() - 60); const L = lim.toISOString().slice(0, 10);
+    const g = {};
+    rows.filter((r) => r.disponible !== false && String(r.fecha).slice(0, 10) >= L).forEach((r) => {
+      const v = r.precio_promo != null ? Number(r.precio_promo) : r.precio_regular != null ? Number(r.precio_regular) : null;
+      const k = skuKey(r.sku), m = nrm(r.marca);
+      if (v == null || !isFinite(v) || v <= 0 || !k) return;
+      (g[m + "#" + k] = g[m + "#" + k] || []).push(v);
+    });
+    const out = {}; Object.entries(g).forEach(([k, xs]) => (out[k] = median(xs)));
+    return out;
+  }
+  async function loadPrecios() {
+    if (precios || preciosLoading) return; preciosLoading = true;
+    try { precios = priceMap(await API.listPrecios()); } catch { precios = {}; }
+    preciosLoading = false; render();
+  }
+
+  // ---------- Cálculo ----------
+  function factorProy(corte, anio, mesI) {
+    if (!corte) return null;
+    const d = new Date(String(corte).slice(0, 10) + "T12:00:00");
+    if (d.getFullYear() === anio && d.getMonth() === mesI) return new Date(anio, mesI + 1, 0).getDate() / d.getDate();
+    if (d > new Date(anio, mesI + 1, 0)) return 1;
+    return null;
+  }
+
+  function analyze(C) {
+    const D = C.datos, MK = marcas(D), meses = D.meses, afx = D.avance || [];
     const full = meses.map((m, k) => (m.parcial ? null : k)).filter((k) => k != null);
     const lastFull = full[full.length - 1];
     const nA = afx.length, LA = nA - 1, PA = nA - 2;
-    let F = D.filas.map((f) => ({ ...f, act: enActivacion(f.t) }));
+    const corte = C.corte || D.corte || null;
+    const fac = nA ? factorProy(corte, D.anio, afx[LA].i) : null;
+    const P = precios || {};
+    const pr = (marca, desc) => { const k = skuKey(desc); return k ? P[nrm(marca) + "#" + k] ?? null : null; };
+
+    let F = D.filas.map((f) => ({ ...f, act: enActivacion(f.t), pA: pr(MK.propia, f.d), pO: pr(MK.base, f.d) }));
     const tiendasAll = [...new Set(F.map((f) => f.t))];
     if (st.alcance === "act") F = F.filter((f) => f.act);
     if (st.alcance === "ctrl") F = F.filter((f) => !f.act);
@@ -239,183 +292,264 @@
 
     const avgFull = (m) => (full.length ? sum(full.map((k) => m[k])) / full.length : 0);
     const trend = (m) => { const a = full.slice(-3), b = full.slice(-6, -3); if (!a.length || !b.length) return null; const x = sum(a.map((k) => m[k])) / a.length, y = sum(b.map((k) => m[k])) / b.length; return y ? x / y - 1 : null; };
-    const stats = (m, a) => {
-      const oProm = avgFull(m), aLast = nA ? a[LA] : null, aPrev = nA > 1 ? a[PA] : null;
-      return { oTot: sum(full.map((k) => m[k])), oProm, oLast: lastFull != null ? m[lastFull] : null, oTrend: trend(m), aLast, aPrev,
-        aGrow: aPrev ? aLast / aPrev - 1 : null, ratio: oProm ? aLast / oProm : null, ratioPrev: oProm && aPrev != null ? aPrev / oProm : null,
-        share: aLast != null && aLast + oProm ? aLast / (aLast + oProm) : null, gap: oProm - (aLast || 0) };
+    const shareOf = (a, o) => (a != null && a + o > 0 ? a / (a + o) : null);
+    const rowStats = (f) => {
+      const oProm = avgFull(f.m), aLast = nA ? f.a[LA] : 0, aProj = fac ? aLast * fac : aLast, target = (META / (1 - META)) * oProm;
+      return { oProm, aLast, aProj, target, gapU: target - aProj, gapS: f.pA != null ? (target - aProj) * f.pA : null, oS: f.pO != null ? oProm * f.pO : null, aS: f.pA != null ? aProj * f.pA : null };
+    };
+    F.forEach((f) => Object.assign(f, rowStats(f)));
+    const agg = (xs) => {
+      const m = meses.map((_, k) => sum(xs.map((f) => f.m[k]))), a = afx.map((_, i) => sum(xs.map((f) => f.a[i])));
+      const oProm = avgFull(m), aLast = nA ? a[LA] : null, aPrev = nA > 1 ? a[PA] : null, aProj = aLast != null ? (fac ? aLast * fac : aLast) : null;
+      const sumN = (k) => { const v = xs.map((f) => f[k]).filter((x) => x != null); return v.length ? sum(v) : null; };
+      return { m, a, oProm, oTrend: trend(m), oLast: lastFull != null ? m[lastFull] : null, aLast, aPrev, aProj, aGrow: aPrev ? aLast / aPrev - 1 : null,
+        share: shareOf(aProj, oProm), sharePrev: aPrev != null ? shareOf(aPrev, oProm) : null, gapU: sum(xs.map((f) => f.gapU)),
+        gapS: sumN("gapS"), oS: sumN("oS"), aS: sumN("aS"), conPrecio: xs.filter((f) => f.pA != null).length / Math.max(1, xs.length) };
     };
     const group = (keyF, labelF) => {
-      const g = {};
-      F.forEach((f) => { const k = keyF(f); const x = g[k] = g[k] || { k, lbl: labelF(f), act: f.act, cod: f.cod, m: meses.map(() => 0), a: afx.map(() => 0), filas: [] }; f.m.forEach((v, i) => (x.m[i] += v)); f.a.forEach((v, i) => (x.a[i] += v)); x.filas.push(f); });
-      return Object.values(g).map((x) => ({ ...x, ...stats(x.m, x.a) }));
+      const g = {}; F.forEach((f) => (g[keyF(f)] = g[keyF(f)] || []).push(f));
+      return Object.entries(g).map(([k, xs]) => ({ k, lbl: labelF(xs[0]), act: xs[0].act, cod: xs[0].cod, pA: xs[0].pA, pO: xs[0].pO, filas: xs, ...agg(xs) }));
     };
-    const tot = { m: meses.map((_, k) => sum(F.map((f) => f.m[k]))), a: afx.map((_, i) => sum(F.map((f) => f.a[i]))) };
-    Object.assign(tot, stats(tot.m, tot.a));
-    const tiendas = group((f) => f.t, (f) => (f.ct ? f.ct + " - " : "") + f.t).sort((a, b) => (b.ratio ?? -1) - (a.ratio ?? -1));
+    const tot = agg(F);
+    const tiendas = group((f) => f.t, (f) => (f.ct ? f.ct + " - " : "") + f.t).sort((a, b) => (b.share ?? -1) - (a.share ?? -1));
     const skus = group((f) => f.sku, (f) => f.d).sort((a, b) => b.oProm - a.oProm);
 
-    const all = D.filas.map((f) => ({ ...f, act: enActivacion(f.t) }));
-    const grp = (flag) => { const xs = all.filter((f) => f.act === flag); const m = meses.map((_, k) => sum(xs.map((f) => f.m[k]))), a = afx.map((_, i) => sum(xs.map((f) => f.a[i]))); return { n: new Set(xs.map((f) => f.t)).size, ...stats(m, a), a }; };
-    const actVs = { act: grp(true), ctrl: grp(false) };
+    const all = D.filas.map((f) => { const x = { ...f, act: enActivacion(f.t), pA: pr(MK.propia, f.d), pO: pr(MK.base, f.d) }; return Object.assign(x, rowStats(x)); });
+    const actVs = { act: { n: new Set(all.filter((f) => f.act).map((f) => f.t)).size, ...agg(all.filter((f) => f.act)) }, ctrl: { n: new Set(all.filter((f) => !f.act).map((f) => f.t)).size, ...agg(all.filter((f) => !f.act)) } };
 
-    // Afix sin venta (último mes) donde Oatey sí vende
-    const sinAfix = nA ? F.map((f) => ({ f, oProm: avgFull(f.m), aLast: f.a[LA] })).filter((x) => !x.aLast && x.oProm >= 3).sort((a, b) => b.oProm - a.oProm) : [];
-    return { meses, afx, full, lastFull, LA, PA, tot, tiendas, skus, actVs, sinAfix, tiendasAll, avgFull };
-  }
+    // Semana anterior: carga previa (corte más antiguo) del mismo mes de avance
+    let prev = null;
+    if (corte && nA) {
+      const older = cargas.filter((c) => c.id !== C.id && (c.corte || c.datos.corte) && (c.corte || c.datos.corte) < corte);
+      const pc = older[0];
+      if (pc) {
+        const PD = pc.datos, pafx = PD.avance || [], pLA = pafx.length - 1;
+        if (pLA >= 0) {
+          const xs = PD.filas.filter((f) => (!st.alcance || (st.alcance === "act") === enActivacion(f.t)) && (!st.tienda || f.t === st.tienda));
+          const pFull = PD.meses.map((m, k) => (m.parcial ? null : k)).filter((k) => k != null);
+          const pO = pFull.length ? sum(xs.flatMap((f) => pFull.map((k) => f.m[k]))) / pFull.length : 0;
+          const pa = sum(xs.map((f) => f.a[pLA])), pfac = factorProy(pc.corte || PD.corte, PD.anio, pafx[pLA].i);
+          prev = { corte: pc.corte || PD.corte, mismoMes: pafx[pLA].i === afx[LA].i, aLast: pa, share: shareOf(pfac ? pa * pfac : pa, pO) };
+        }
+      }
+    }
 
-  function insights(A, MK) {
-    const out = [], O = MK.base, X = MK.propia, nA = A.afx.length, T = A.tot;
+    // Evolución de la participación: cierres de meses previos + proyección de cada carga del mes en curso
+    const evol = [];
+    afx.slice(0, -1).forEach((a, i) => evol.push({ lbl: a.lbl.slice(0, 3), v: shareOf(tot.a[i], tot.oProm), tipo: "mes" }));
     if (nA) {
-      const L = A.afx[A.LA].lbl;
-      out.push(`<b>${X} ${L}:</b> ${fmt(T.aLast)} u. a la fecha de corte, equivalente al ${pct(T.ratio, false)} de lo que ${O} vende en un mes promedio (${fmt(T.oProm)} u.). Participación estimada de ${X}: <b>${pct(T.share, false)}</b>.${nA > 1 ? ` En ${A.afx[A.PA].lbl} fue ${fmt(T.aPrev)} u. (${pct(T.ratioPrev, false)} de ${O}); crecimiento ${pct(T.aGrow)}.` : ""}`);
+      const mismas = cargas.filter((c) => (c.corte || c.datos.corte) && (c.datos.avance || []).length && c.datos.avance[c.datos.avance.length - 1].i === afx[LA].i && (c.corte || c.datos.corte) <= (corte || "9999"))
+        .sort((a, b) => String(a.corte || a.datos.corte).localeCompare(String(b.corte || b.datos.corte)));
+      mismas.forEach((c) => {
+        const PD = c.datos, pLA = PD.avance.length - 1;
+        const xs = PD.filas.filter((f) => (!st.alcance || (st.alcance === "act") === enActivacion(f.t)) && (!st.tienda || f.t === st.tienda));
+        const pFull = PD.meses.map((m, k) => (m.parcial ? null : k)).filter((k) => k != null);
+        const pO = pFull.length ? sum(xs.flatMap((f) => pFull.map((k) => f.m[k]))) / pFull.length : 0;
+        const pfac = factorProy(c.corte || PD.corte, PD.anio, PD.avance[pLA].i), pa = sum(xs.map((f) => f.a[pLA]));
+        evol.push({ lbl: fdc(c.corte || PD.corte).replace(/ \d{4}$/, ""), v: shareOf(pfac ? pa * pfac : pa, pO), tipo: "semana" });
+      });
+      if (!mismas.length) evol.push({ lbl: afx[LA].lbl.slice(0, 3) + (fac ? " (proy.)" : " (a la fecha)"), v: tot.share, tipo: "semana" });
     }
-    if (A.lastFull != null) out.push(`<b>${O} (referencia):</b> ${fmt(T.oProm)} u./mes en ${A.full.length} meses completos; tendencia 3 meses ${pct(T.oTrend)}. ${A.meses[A.lastFull].lbl} cerró en ${fmt(T.oLast)} u.${A.meses.some((m) => m.parcial) ? ` ${A.meses.find((m) => m.parcial).lbl} es parcial y no se compara.` : ""}`);
-    const ts = A.tiendas.filter((t) => t.ratio != null);
-    if (nA && ts.length > 2) {
-      out.push(`<b>Dónde ${X} compite mejor:</b> ${ts.slice(0, 3).map((t) => `${esc(t.k)} (${pct(t.ratio, false)} de ${O})`).join(", ")}. <b>Más rezagadas:</b> ${ts.slice(-3).reverse().map((t) => `${esc(t.k)} (${pct(t.ratio, false)})`).join(", ")}.`);
-    }
-    if (nA && A.skus.length > 1) {
-      const s = A.skus.filter((x) => x.oProm >= 20), best = s.slice().sort((a, b) => b.ratio - a.ratio)[0], gap = A.skus.slice().sort((a, b) => b.gap - a.gap)[0];
-      if (best && gap) out.push(`<b>Por producto:</b> ${X} está más cerca de ${O} en ${esc(shortSku(best.lbl))} (${pct(best.ratio, false)}). La mayor brecha en unidades es ${esc(shortSku(gap.lbl))}: ${O} vende ${fmt(gap.oProm)} u./mes vs. ${fmt(gap.aLast)} de ${X}; es la principal oportunidad.`);
-    }
+
+    const sinAfix = nA ? F.filter((f) => !f.aLast && f.oProm >= 3).sort((a, b) => b.oProm - a.oProm) : [];
+    const xMed = median(tiendas.map((t) => t.oProm));
+    tiendas.forEach((t) => (t.cuad = t.oProm >= xMed ? (t.share >= META ? "Defender" : "Atacar") : t.share >= META ? "Mantener" : "Desarrollar"));
+    return { MK, meses, afx, full, lastFull, LA, PA, nA, corte, fac, tot, tiendas, skus, actVs, prev, evol, sinAfix, tiendasAll, avgFull, xMed };
+  }
+
+  function acciones(A) {
+    const X = A.MK.propia, O = A.MK.base, out = [];
+    const atacar = A.tiendas.filter((t) => t.cuad === "Atacar").sort((a, b) => b.gapU - a.gapU).slice(0, 3);
+    if (atacar.length) out.push({ t: `Atacar ${atacar.map((t) => shortT(t.k)).join(", ")}`, d: `Tiendas grandes con ${X} bajo la meta: ${O} vende ${fmt(sum(atacar.map((t) => t.oProm)))} u./mes y ${X} proyecta ${fmt(sum(atacar.map((t) => t.aProj)))}. Priorizar turnos de promotora y exhibición adicional.`, r: "Trade Marketing + Agencia Fuego" });
+    const sk = A.skus.slice().sort((a, b) => (b.gapS ?? b.gapU) - (a.gapS ?? a.gapU))[0];
+    if (sk && sk.gapU > 0) out.push({ t: `Empujar ${shortSku(sk.lbl)}`, d: `Es la mayor brecha a la meta: ${fmt(sk.gapU)} u./mes${sk.gapS != null ? ` (${money(sk.gapS)})` : ""}.${sk.pA != null && sk.pO != null ? ` ${X} a S/ ${sk.pA.toFixed(2)} vs. ${O} a S/ ${sk.pO.toFixed(2)}: ${sk.pA < sk.pO ? `usar el ${Math.round((1 - sk.pA / sk.pO) * 100)}% de ahorro como argumento de venta` : "revisar precio"}.` : ""}`, r: "Marketing" });
+    if (A.sinAfix.length) out.push({ t: `Revisar stock en ${A.sinAfix.length} puntos sin venta ${X}`, d: `Combinaciones tienda × producto donde ${O} vende y ${X} no registró venta. Empezar por ${shortSku(A.sinAfix[0].d)} en ${shortT(A.sinAfix[0].t)} (${O} ${fmt(A.sinAfix[0].oProm)} u./mes).`, r: "Comercial / KAM Sodimac" });
     const { act, ctrl } = A.actVs;
-    if (nA && act.n && ctrl.n && act.ratio != null && ctrl.ratio != null) out.push(`<b>Activación:</b> en las ${act.n} tiendas con activación ${X} llega al ${pct(act.ratio, false)} de ${O}, frente a ${pct(ctrl.ratio, false)} en las ${ctrl.n} sin activación${nA > 1 ? ` (en ${A.afx[A.PA].lbl}: ${pct(act.ratioPrev, false)} vs. ${pct(ctrl.ratioPrev, false)})` : ""}. Hipótesis: efecto de las promotoras; confirmar con la misma fecha de corte.`);
-    if (A.sinAfix.length) out.push(`<b>${X} sin venta donde ${O} sí vende:</b> ${A.sinAfix.length} combinaciones tienda × producto en ${A.afx[A.LA].lbl}; la más grande es ${esc(shortSku(A.sinAfix[0].f.d))} en ${esc(A.sinAfix[0].f.t)} (${O} ${fmt(A.sinAfix[0].oProm)} u./mes). Revisar stock y exhibición.`);
-    return out;
+    if (act.share != null && ctrl.share != null && ctrl.n && act.share > ctrl.share * 1.3 && !st.tienda) out.push({ t: "Evaluar activación en provincias", d: `Con activación ${X} llega a ${pct1(act.share)} de participación vs. ${pct1(ctrl.share)} sin activación (hipótesis: efecto promotoras).`, r: "Gerencia de Marketing" });
+    return out.slice(0, 4);
   }
 
-  function chart(A, MK) {
-    const W = 720, H = 230, P = { l: 44, r: 12, t: 18, b: 26 };
-    const idx = [...new Set([...A.meses.map((m) => m.i), ...A.afx.map((a) => a.i)])].sort((a, b) => a - b);
-    const oBy = {}, aBy = {}; A.meses.forEach((m, k) => (oBy[m.i] = { v: A.tot.m[k], parcial: m.parcial })); A.afx.forEach((a, k) => (aBy[a.i] = A.tot.a[k]));
-    const max = Math.max(1, ...idx.map((i) => Math.max(oBy[i]?.v || 0, aBy[i] || 0))) * 1.12, bw = (W - P.l - P.r) / idx.length;
-    const y = (v) => H - P.b - (v / max) * (H - P.t - P.b);
-    let g = "";
-    for (let i = 0; i <= 4; i++) { const v = (max / 4) * i; g += `<line class="grid" x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`; }
-    idx.forEach((i, n) => {
-      const x = P.l + n * bw, o = oBy[i], a = aBy[i], both = o && a != null, w = both ? bw * 0.36 : bw * 0.6;
-      if (o) { const xo = both ? x + bw * 0.12 : x + bw * 0.2; g += `<rect x="${xo}" y="${y(o.v)}" width="${w}" height="${H - P.b - y(o.v)}" rx="3" fill="${o.parcial ? "#d9d4dc" : "#9b93a3"}"><title>${MK.base} ${MES[i]}${o.parcial ? " (parcial)" : ""}: ${fmt(o.v)} u.</title></rect><text class="val" x="${xo + w / 2}" y="${y(o.v) - 4}" text-anchor="middle">${fmt(o.v)}</text>`; }
-      if (a != null) { const xa = both ? x + bw * 0.52 : x + bw * 0.2; g += `<rect x="${xa}" y="${y(a)}" width="${w}" height="${H - P.b - y(a)}" rx="3" fill="var(--purple)"><title>${MK.propia} ${MES[i]}: ${fmt(a)} u.</title></rect><text class="val" x="${xa + w / 2}" y="${y(a) - 4}" text-anchor="middle" fill="var(--purple)">${fmt(a)}</text>`; }
-      g += `<text class="axis" x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${MES[i]}${o && o.parcial ? "*" : ""}</text>`;
+  // ---------- Gráficos ----------
+  const semCls = (share) => (share == null ? "neu" : share >= META ? "ok" : share >= META * 0.6 ? "warn" : "bad");
+
+  function scatter(A) {
+    const W = 600, H = 360, P = { l: 48, r: 16, t: 16, b: 40 }, T = A.tiendas.filter((t) => t.share != null);
+    const xMax = Math.max(1, ...T.map((t) => t.oProm)) * 1.08, yMax = Math.max(META * 1.6, ...T.map((t) => t.share)) * 1.1;
+    const x = (v) => P.l + (v / xMax) * (W - P.l - P.r), y = (v) => H - P.b - (v / yMax) * (H - P.t - P.b);
+    const xm = x(A.xMed), ym = y(META);
+    let g = `<rect x="${xm}" y="${ym}" width="${W - P.r - xm}" height="${H - P.b - ym}" fill="#fbeaea" opacity=".7"/><rect x="${xm}" y="${P.t}" width="${W - P.r - xm}" height="${ym - P.t}" fill="#e5f5ec" opacity=".6"/>`;
+    for (let i = 0; i <= 4; i++) { const v = (yMax / 4) * i; g += `<line class="grid" x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v * 100)}%</text>`; }
+    for (let i = 0; i <= 4; i++) { const v = (xMax / 4) * i; g += `<text class="axis" x="${x(v)}" y="${H - P.b + 16}" text-anchor="middle">${fmt(v)}</text>`; }
+    g += `<line x1="${xm}" x2="${xm}" y1="${P.t}" y2="${H - P.b}" stroke="#cfc5d6" stroke-dasharray="4 4"/><line class="goal" x1="${P.l}" x2="${W - P.r}" y1="${ym}" y2="${ym}"/>`;
+    g += `<text class="goal-lbl" x="${P.l + 4}" y="${ym - 5}">Meta ${Math.round(META * 100)}%</text>`;
+    const q = (txt, xx, yy, anchor, col) => `<text x="${xx}" y="${yy}" text-anchor="${anchor}" font-size="11" font-weight="800" letter-spacing=".06em" fill="${col}">${txt}</text>`;
+    g += q("DEFENDER", W - P.r - 6, P.t + 14, "end", "#1f8a4c") + q("ATACAR", W - P.r - 6, H - P.b - 8, "end", "#c93f3f") + q("MANTENER", xm - 6, P.t + 14, "end", "#6b6274") + q("DESARROLLAR", xm - 6, H - P.b - 8, "end", "#6b6274");
+    g += `<text class="axis" x="${(P.l + W - P.r) / 2}" y="${H - 6}" text-anchor="middle">Tamaño de la tienda: venta ${A.MK.base} (u./mes)</text><text class="axis" transform="translate(12 ${(P.t + H - P.b) / 2}) rotate(-90)" text-anchor="middle">Participación ${A.MK.propia}</text>`;
+    const placed = T.map((t) => ({ x0: x(t.oProm) - 8, x1: x(t.oProm) + 8, y: y(t.share) + 4 }));
+    T.slice().sort((a, b) => b.share - a.share).forEach((t) => {
+      const cx = x(t.oProm), cy = y(t.share), right = cx > W - 120, lw = shortT(t.k).length * 5.6 + 4;
+      const x0 = right ? cx - 10 - lw : cx + 10;
+      let ly = cy + 4;
+      const hit = (yy) => placed.some((p) => Math.abs(p.y - yy) < 11 && x0 < p.x1 && x0 + lw > p.x0);
+      for (let k = 1; k < 10 && hit(ly); k++) ly = cy + 4 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 11;
+      placed.push({ x0, x1: x0 + lw, y: ly });
+      if (Math.abs(ly - cy - 4) > 1) g += `<line x1="${cx}" y1="${cy}" x2="${right ? cx - 9 : cx + 9}" y2="${ly - 4}" stroke="#cfc5d6"/>`;
+      g += `<circle cx="${cx}" cy="${cy}" r="7" fill="${t.act ? "var(--purple)" : "#9b93a3"}" stroke="#fff" stroke-width="1.5"><title>${esc(t.k)}: ${A.MK.base} ${fmt(t.oProm)} u./mes · ${A.MK.propia} ${fmt(t.aProj)} u. · participación ${pct1(t.share)}</title></circle>`;
+      g += `<text x="${right ? cx - 10 : cx + 10}" y="${ly}" font-size="10.5" fill="#1d1424" text-anchor="${right ? "end" : "start"}">${esc(shortT(t.k))}</text>`;
     });
-    if (A.tot.oProm) g += `<line class="goal" x1="${P.l}" x2="${W - P.r}" y1="${y(A.tot.oProm)}" y2="${y(A.tot.oProm)}" style="stroke:#9b93a3"/><text class="axis" x="${W - P.r}" y="${y(A.tot.oProm) - 5}" text-anchor="end">Promedio ${MK.base} ${fmt(A.tot.oProm)}</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${MK.base} vs ${MK.propia} por mes">${g}</svg>
-      <div class="small muted" style="display:flex;gap:16px;margin-top:6px"><span><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9b93a3"></span> ${MK.base}</span><span><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple)"></span> ${MK.propia}</span><span>* mes parcial</span></div>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Matriz de prioridades por tienda">${g}</svg>
+      <div class="legend"><span><i style="background:var(--purple)"></i>Con activación</span><span><i style="background:#9b93a3"></i>Sin activación</span><span><i style="background:#fbeaea"></i>Prioridad: grande y bajo meta</span></div>`;
   }
 
-  const ratioPill = (r) => (r == null ? '<span class="muted">—</span>' : `<span class="pill ${r >= 0.25 ? "ok" : r >= 0.1 ? "warn" : "bad"}">${pct(r, false)}</span>`);
-  const trendPill = (t) => (t == null ? '<span class="muted">—</span>' : `<span class="pill ${t > 0.05 ? "ok" : t < -0.05 ? "bad" : "muted"}">${pct(t)}</span>`);
-  const vsBar = (o, a, maxO) => `<div style="display:grid;gap:3px;min-width:120px"><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:${(o / maxO) * 100}%;background:#9b93a3"></div></div><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:${((a || 0) / maxO) * 100}%"></div></div></div>`;
+  function rankBars(A) {
+    const T = A.tiendas.filter((t) => t.share != null), mx = Math.max(META * 1.4, ...T.map((t) => t.share));
+    return `<div class="rank">${T.map((t) => `<div class="rank-row"><span class="name" title="${esc(t.lbl)}">${esc(shortT(t.k))}${t.act ? '<i class="act-dot" title="Con activación"></i>' : ""}</span>
+      <div class="rank-track"><div class="rank-fill ${semCls(t.share)}" style="width:${(t.share / mx) * 100}%"></div><div class="rank-meta" style="left:${(META / mx) * 100}%"></div></div>
+      <span class="n">${pct1(t.share)}</span></div>`).join("")}</div>
+      <div class="legend"><span><i style="background:var(--ok)"></i>En meta</span><span><i style="background:#e0a21b"></i>Cerca (≥ ${Math.round(META * 60)}%)</span><span><i style="background:var(--coral)"></i>Lejos</span><span><i style="background:var(--coral);width:2px;height:12px;border-radius:0"></i>Meta ${Math.round(META * 100)}%</span></div>`;
+  }
 
-  function heat(A, MK) {
+  function evolChart(A) {
+    const pts = A.evol.filter((p) => p.v != null);
+    if (!pts.length) return '<div class="empty">Sin datos de avance.</div>';
+    const W = 560, H = 220, P = { l: 40, r: 16, t: 20, b: 30 }, n = pts.length, yMax = Math.max(META * 1.4, ...pts.map((p) => p.v)) * 1.15;
+    const x = (i) => P.l + (n === 1 ? (W - P.l - P.r) / 2 : (i / (n - 1)) * (W - P.l - P.r)), y = (v) => H - P.b - (v / yMax) * (H - P.t - P.b);
+    let g = "";
+    for (let i = 0; i <= 4; i++) { const v = (yMax / 4) * i; g += `<line class="grid" x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v * 100)}%</text>`; }
+    g += `<line class="goal" x1="${P.l}" x2="${W - P.r}" y1="${y(META)}" y2="${y(META)}"/><text class="goal-lbl" x="${W - P.r}" y="${y(META) - 5}" text-anchor="end">Meta ${Math.round(META * 100)}%</text>`;
+    if (n > 1) g += `<polyline points="${pts.map((p, i) => `${x(i)},${y(p.v)}`).join(" ")}" fill="none" stroke="var(--purple)" stroke-width="2.5"/>`;
+    pts.forEach((p, i) => (g += `<circle cx="${x(i)}" cy="${y(p.v)}" r="5" fill="${p.tipo === "mes" ? "#fff" : "var(--purple)"}" stroke="var(--purple)" stroke-width="2"/><text class="val" x="${x(i)}" y="${y(p.v) - 10}" text-anchor="middle">${pct1(p.v)}</text><text class="axis" x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(p.lbl)}</text>`));
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Evolución de la participación">${g}</svg>
+      <div class="legend"><span><i style="background:#fff;border:2px solid var(--purple)"></i>Cierre de mes</span><span><i style="background:var(--purple)"></i>Corte semanal (proyección de cierre)</span></div>`;
+  }
+
+  function valueBars(A) {
+    const S = A.skus.filter((s) => s.oS != null || s.aS != null).sort((a, b) => (b.oS || 0) - (a.oS || 0)).slice(0, 8);
+    if (!S.length) return `<div class="empty">Aún no hay precios relevados para valorizar. Se toman de la pestaña Precios (mediana de los últimos 60 días).</div>`;
+    const mx = Math.max(1, ...S.map((s) => Math.max(s.oS || 0, s.aS || 0)));
+    return `<div class="vbars">${S.map((s) => `<div class="vrow"><div class="vname">${esc(shortSku(s.lbl))}<span>${s.gapS != null && s.gapS > 0 ? `brecha a meta ${money(s.gapS)}` : s.gapS != null ? "en meta" : "sin precio Afix"}</span></div>
+      <div class="vtracks"><div class="vtrack"><div class="vfill o" style="width:${((s.oS || 0) / mx) * 100}%"></div><b>${money(s.oS)}</b></div><div class="vtrack"><div class="vfill a" style="width:${((s.aS || 0) / mx) * 100}%"></div><b>${money(s.aS)}</b></div></div></div>`).join("")}</div>
+      <div class="legend"><span><i style="background:#9b93a3"></i>${A.MK.base} (mes promedio)</span><span><i style="background:var(--purple)"></i>${A.MK.propia} (${A.fac ? "proyección del mes" : "mes a la fecha"})</span></div>`;
+  }
+
+  function heat(A) {
     const T = A.tiendas.slice().sort((a, b) => b.oProm - a.oProm), S = A.skus.slice(0, 14);
     const cell = {}; T.forEach((t) => t.filas.forEach((f) => (cell[t.k + "|" + f.sku] = f)));
     return `<div class="table-wrap"><table class="ind-table heat"><thead><tr><th>Tienda</th>${S.map((s) => `<th class="num" title="${esc(s.lbl)}">${esc(shortSku(s.lbl).replace(/^Pvc\s+/i, "").replace(/^Soldadura Pvc\s+/i, "Sold. "))}</th>`).join("")}</tr></thead><tbody>
-      ${T.map((t) => `<tr><td class="nowrap"><strong>${esc(t.k)}</strong></td>${S.map((s) => {
-        const f = cell[t.k + "|" + s.k]; if (!f) return '<td class="num muted">—</td>';
-        const o = A.avgFull(f.m), a = f.a[A.LA] || 0; if (!o) return `<td class="num muted">${a ? fmt(a) : "—"}</td>`;
-        const r = a / o, bg = r >= 0.4 ? "#74119e" : r >= 0.2 ? "#a46bc0" : r >= 0.1 ? "#dcc8e7" : r > 0 ? "#f3e8f8" : "#fdecec";
-        return `<td class="num" style="background:${bg};color:${r >= 0.2 ? "#fff" : "inherit"}" title="${esc(t.k)} · ${esc(s.lbl)}: ${MK.propia} ${fmt(a)} u. vs ${MK.base} ${o.toFixed(1)} u./mes">${Math.round(r * 100)}%</td>`;
+      ${T.map((t) => `<tr><td class="nowrap"><strong>${esc(shortT(t.k))}</strong></td>${S.map((s) => {
+        const f = cell[t.k + "|" + s.k]; if (!f || !f.oProm) return '<td class="num muted">—</td>';
+        const r = f.aProj / (f.aProj + f.oProm), bg = r >= META ? "#74119e" : r >= META * 0.6 ? "#a46bc0" : r >= META * 0.3 ? "#dcc8e7" : r > 0 ? "#f3e8f8" : "#fdecec";
+        return `<td class="num" style="background:${bg};color:${r >= META * 0.6 ? "#fff" : "inherit"}" title="${esc(t.k)} · ${esc(s.lbl)}: ${A.MK.propia} ${fmt(f.aProj)} u. vs ${A.MK.base} ${f.oProm.toFixed(1)} u./mes">${Math.round(r * 100)}%</td>`;
       }).join("")}</tr>`).join("")}
     </tbody></table></div>`;
   }
 
+  // ---------- Render ----------
   function render() {
     if (!el) return;
     if (!loaded) { el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">${loading ? "Cargando ventas…" : esc(err)}</div></div>`; return; }
     if (!cargas.length) {
-      el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">Aún no hay ventas cargadas. Ve a la pestaña <b>Precios</b> y usa <b>📥 Cargar Excel de ventas por SKU</b>.</div></div>`;
+      el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">Aún no hay ventas cargadas. Ve a la pestaña <b>Precios</b> y usa <b>📥 Cargar ventas por SKU</b>.</div></div>`;
       return;
     }
     const C = cargas.find((c) => c.id === st.carga) || cargas[0]; st.carga = C.id;
-    const MK = marcas(C.datos), O = MK.base, X = MK.propia;
-    const A = analyze(C.datos), T = A.tot, nA = A.afx.length;
-    const LL = nA ? A.afx[A.LA].lbl : "", PL = nA > 1 ? A.afx[A.PA].lbl : "";
-    const { act, ctrl } = A.actVs;
-    const maxT = Math.max(1, ...A.tiendas.map((t) => Math.max(t.oProm, t.aLast || 0)));
-    const maxS = Math.max(1, ...A.skus.map((t) => Math.max(t.oProm, t.aLast || 0)));
+    const A = analyze(C), T = A.tot, X = A.MK.propia, O = A.MK.base;
+    const mesAv = A.nA ? MES_L[A.afx[A.LA].i] : "";
+    const enMeta = A.tiendas.filter((t) => t.share != null && t.share >= META).length;
+    const titular = A.nA
+      ? `${X} ${A.fac ? "proyecta cerrar" : "lleva"} ${mesAv.toLowerCase()} con <span>${pct1(T.share)}</span> de participación frente a ${O}${T.aGrow != null ? ` y crece ${pct(T.aGrow)} vs. ${A.afx[A.PA].lbl.toLowerCase()}` : ""}.`
+      : `Sin datos de ${X} en esta carga.`;
+    const ac = acciones(A);
+    const wk = A.prev;
 
     el.innerHTML = `
-      <div class="kpis">
-        <div class="card kpi accent"><div class="lbl">${X} ${esc(LL)}</div><div class="val">${fmt(T.aLast)}</div><div class="sub">unidades a la fecha${nA > 1 ? ` · <span class="${T.aGrow >= 0 ? "up" : "down"}">${pct(T.aGrow)}</span> vs. ${esc(PL)}` : ""}</div></div>
-        <div class="card kpi"><div class="lbl">${O} promedio mensual</div><div class="val">${fmt(T.oProm)}</div><div class="sub">${A.full.length} meses completos · tendencia ${pct(T.oTrend)}</div></div>
-        <div class="card kpi"><div class="lbl">${X} vs. ${O}</div><div class="val">${pct(T.ratio, false)}</div><div class="sub">${X} ${esc(LL)} ÷ ${O} mes promedio</div></div>
-        <div class="card kpi warn"><div class="lbl">Participación ${X}</div><div class="val">${pct(T.share, false)}</div><div class="sub">${X} ÷ (${X} + ${O}) · estimada</div></div>
+      <div class="exec">
+        <div class="exec-top">
+          <div>
+            <div class="exec-kicker">Informe semanal · ${X} vs. ${O} en Sodimac · corte ${esc(fdc(A.corte))}${st.alcance === "act" ? " · tiendas con activación" : st.alcance === "ctrl" ? " · tiendas sin activación" : ""}${st.tienda ? " · " + esc(st.tienda) : ""}</div>
+            <h2 class="exec-title">${titular}</h2>
+          </div>
+        </div>
+        ${!A.corte ? `<div class="exec-warn">Falta la fecha de corte de esta carga: la participación se calcula con el avance a la fecha (sin proyectar). Agrégala en Precios → historial de cargas.</div>` : ""}
+        <div class="exec-kpis">
+          <div class="xk"><div class="xk-l"><i class="sem ${semCls(T.share)}"></i>Participación ${X}</div><div class="xk-v">${pct1(T.share)}</div><div class="xk-s">Meta ${Math.round(META * 100)}% · ${wk && wk.mismoMes ? `${pp(T.share - wk.share)} vs. semana anterior` : T.sharePrev != null ? `${A.afx[A.PA].lbl}: ${pct1(T.sharePrev)}` : ""}</div></div>
+          <div class="xk"><div class="xk-l"><i class="sem ${T.aGrow == null ? "neu" : T.aGrow >= 0 ? "ok" : "bad"}"></i>${X} ${mesAv.toLowerCase()}</div><div class="xk-v">${fmt(A.fac ? T.aProj : T.aLast)}<small> u.</small></div><div class="xk-s">${A.fac ? `proyección · ${fmt(T.aLast)} u. a la fecha` : "a la fecha"}${wk && wk.mismoMes ? ` · +${fmt(T.aLast - wk.aLast)} u. en la semana` : ""}</div></div>
+          <div class="xk"><div class="xk-l"><i class="sem ${T.gapU <= 0 ? "ok" : "bad"}"></i>Brecha a la meta</div><div class="xk-v">${T.gapU <= 0 ? "Cumplida" : T.gapS != null ? money(T.gapS) : fmt(T.gapU) + "<small> u.</small>"}</div><div class="xk-s">${T.gapU <= 0 ? `${fmt(-T.gapU)} u./mes sobre la meta` : `${fmt(T.gapU)} u./mes por capturar`}${T.gapS != null && T.conPrecio < 0.99 ? ` · precio en ${Math.round(T.conPrecio * 100)}% de SKUs` : ""}</div></div>
+          <div class="xk"><div class="xk-l"><i class="sem ${enMeta >= A.tiendas.length / 2 ? "ok" : enMeta ? "warn" : "bad"}"></i>Tiendas en meta</div><div class="xk-v">${enMeta}<small> / ${A.tiendas.length}</small></div><div class="xk-s">${O} vende ${fmt(T.oProm)} u./mes${T.oS != null ? ` (${money(T.oS)})` : ""}</div></div>
+        </div>
+        ${ac.length ? `<div class="exec-acts"><div class="exec-acts-h">Prioridades de la semana</div><div class="acts">${ac.map((a, i) => `<div class="act"><span class="act-n">${i + 1}</span><div><b>${esc(a.t)}</b><p>${esc(a.d)}</p><span class="act-r">${esc(a.r)}</span></div></div>`).join("")}</div></div>` : ""}
       </div>
 
       <div class="card panel ind-toolbar">
-        <div class="field"><label for="tCarga">Carga</label><select id="tCarga">${cargas.map((c) => `<option value="${esc(c.id)}"${c.id === C.id ? " selected" : ""}>${esc(c.periodo || c.archivo)} · ${fdt(c.created_at)}</option>`).join("")}</select></div>
-        <div class="field"><label for="tAlc">Tiendas</label><select id="tAlc"><option value="">Todas (${A.tiendasAll.length})</option><option value="act"${st.alcance === "act" ? " selected" : ""}>Con activación Afix</option><option value="ctrl"${st.alcance === "ctrl" ? " selected" : ""}>Sin activación</option></select></div>
+        <div class="field"><label for="tCarga">Semana (carga)</label><select id="tCarga">${cargas.map((c) => `<option value="${esc(c.id)}"${c.id === C.id ? " selected" : ""}>Corte ${esc(fdc(c.corte || c.datos.corte))} · ${esc(c.archivo)}</option>`).join("")}</select></div>
+        <div class="field"><label for="tAlc">Tiendas</label><select id="tAlc"><option value="">Todas (${A.tiendasAll.length})</option><option value="act"${st.alcance === "act" ? " selected" : ""}>Con activación ${X}</option><option value="ctrl"${st.alcance === "ctrl" ? " selected" : ""}>Sin activación</option></select></div>
         <div class="field"><label for="tTienda">Tienda</label><select id="tTienda"><option value="">Todas</option>${A.tiendasAll.slice().sort((a, b) => a.localeCompare(b, "es")).map((t) => `<option${t === st.tienda ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
         <div class="spacer"></div>
-        <button class="btn btn-ghost" id="tReload">Actualizar</button>
+        <button class="btn btn-ghost" id="tPrint">Imprimir / PDF</button>
         <button class="btn btn-primary" id="tCsv">Exportar (CSV)</button>
       </div>
 
-      <div class="card panel">
-        <div class="panel-head"><h3>Resumen: ${X} vs. ${O}</h3><span class="muted">${esc(C.archivo)}${st.alcance || st.tienda ? " · filtrado" : ""}</span></div>
-        <ul style="margin:0;padding-left:18px;line-height:1.55;font-size:14px">${insights(A, MK).map((x) => `<li style="margin-bottom:6px">${x}</li>`).join("")}</ul>
-      </div>
-
-      <div class="card panel">
-        <div class="panel-head"><h3>${O} vs. ${X} por mes (unidades)</h3><span class="muted">${O}: venta mensual Sodimac · ${X}: avance a la fecha de corte</span></div>
-        ${chart(A, MK)}
-      </div>
-
-      ${nA && act.n && ctrl.n && !st.tienda ? `<div class="card panel">
-        <div class="panel-head"><h3>Activación: ${X} como % de ${O}</h3><span class="muted">${X} del mes ÷ ${O} mes promedio, por grupo de tiendas</span></div>
-        <div class="bars wide">${A.afx.map((a, i) => [["Con activación (" + act.n + ")", act], ["Sin activación (" + ctrl.n + ")", ctrl]].map(([n, g]) => { const r = g.oProm ? g.a[i] / g.oProm : 0; return `<div class="bar-row"><span class="name">${esc(a.lbl)} · ${esc(n)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, r * 300)}%;${g === ctrl ? "background:#a46bc0" : ""}"></div></div><span class="n">${pct(r, false)}</span></div>`; }).join("")).join("")}</div>
-        <p class="small muted" style="margin:10px 0 0">${O} promedio: con activación ${fmt(act.oProm)} u./mes · sin activación ${fmt(ctrl.oProm)} u./mes. ${X} ${esc(LL)}: ${fmt(act.aLast)} vs. ${fmt(ctrl.aLast)} u. Barra a escala ×3 para que se vean las diferencias.</p>
+      ${!st.tienda ? `<div class="grid2">
+        <div class="card panel"><div class="panel-head"><h3>Matriz de prioridades por tienda</h3><span class="muted">Dónde enfocar promotoras y exhibición</span></div>${scatter(A)}</div>
+        <div class="card panel"><div class="panel-head"><h3>Participación ${X} por tienda</h3><span class="muted">${X} ÷ (${X} + ${O}) · ${A.fac ? "proyección del mes" : "a la fecha"}</span></div>${rankBars(A)}</div>
       </div>` : ""}
 
-      <div class="card panel">
-        <div class="panel-head"><h3>Tiendas: ${X} vs. ${O}</h3><span class="muted">Ordenado por ${X} como % de ${O} · gris = ${O} mes promedio, morado = ${X} ${esc(LL)}</span></div>
-        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th class="num">${O} prom./mes</th><th class="num">Tend. ${O}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th class="num">Crec. ${X}</th><th>Comparativo</th><th class="num">${X} vs. ${O}</th><th class="num">Particip.</th></tr></thead><tbody>
-          ${A.tiendas.map((t) => `<tr><td><strong>${esc(t.lbl)}</strong>${t.act ? ' <span class="pill ok">activación</span>' : ""}</td><td class="num">${fmt(t.oProm)}</td><td class="num">${trendPill(t.oTrend)}</td>${t.a.map((v) => `<td class="num"><b>${fmt(v)}</b></td>`).join("")}<td class="num">${trendPill(t.aGrow)}</td><td>${vsBar(t.oProm, t.aLast, maxT)}</td><td class="num">${ratioPill(t.ratio)}</td><td class="num">${pct(t.share, false)}</td></tr>`).join("")}
-        </tbody></table></div>
+      <div class="grid2">
+        <div class="card panel"><div class="panel-head"><h3>Evolución de la participación</h3><span class="muted">Cierres mensuales y cortes semanales</span></div>${evolChart(A)}</div>
+        <div class="card panel"><div class="panel-head"><h3>¿Cuánto vale la brecha?</h3><span class="muted">Venta mensual en soles por producto · precios de góndola relevados</span></div>${valueBars(A)}</div>
       </div>
 
-      <div class="card panel">
-        <div class="panel-head"><h3>Productos: ${X} vs. ${O}</h3><span class="muted">SKU Sodimac ${O} y su equivalente ${X} · ordenado por tamaño de ${O}</span></div>
-        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Producto</th><th class="num">${O} prom./mes</th><th class="num">Tend. ${O}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th>Comparativo</th><th class="num">${X} vs. ${O}</th><th class="num">Brecha u./mes</th></tr></thead><tbody>
-          ${A.skus.map((s) => `<tr><td><strong>${esc(s.lbl)}</strong><div class="small muted">SKU ${esc(s.k)}${s.cod ? ` · cód. ${X} ${esc(s.cod)}` : ""}</div></td><td class="num">${fmt(s.oProm)}</td><td class="num">${trendPill(s.oTrend)}</td>${s.a.map((v) => `<td class="num"><b>${fmt(v)}</b></td>`).join("")}<td>${vsBar(s.oProm, s.aLast, maxS)}</td><td class="num">${ratioPill(s.ratio)}</td><td class="num">${fmt(Math.max(0, s.gap))}</td></tr>`).join("")}
-        </tbody></table></div>
-      </div>
-
-      ${nA && A.tiendas.length > 1 ? `<div class="card panel">
-        <div class="panel-head"><h3>Mapa tienda × producto: ${X} como % de ${O}</h3><span class="muted">${X} ${esc(LL)} ÷ ${O} mes promedio · morado ≥ 20% · lila 10–20% · rojo claro = ${X} sin venta</span></div>
-        ${heat(A, MK)}
+      ${A.nA && A.actVs.act.n && A.actVs.ctrl.n && !st.tienda && !st.alcance ? `<div class="card panel">
+        <div class="panel-head"><h3>Efecto de la activación</h3><span class="muted">Participación ${X} por grupo de tiendas</span></div>
+        <div class="duo">${[["Con activación", A.actVs.act, "var(--purple)"], ["Sin activación", A.actVs.ctrl, "#9b93a3"]].map(([n, g, c]) => `<div class="duo-c"><div class="duo-l">${n} · ${g.n} tiendas</div><div class="duo-v" style="color:${c}">${pct1(g.share)}</div><div class="duo-s">${A.nA > 1 ? `${A.afx[A.PA].lbl}: ${pct1(g.sharePrev)} → ${mesAv}: ${pct1(g.share)}` : ""}</div></div>`).join("")}</div>
+        <p class="small muted" style="margin:10px 0 0">Hipótesis: la diferencia refleja el trabajo de las promotoras; validar con la misma fecha de corte en ambos grupos.</p>
       </div>` : ""}
 
-      <div class="card panel">
-        <div class="panel-head"><h3>${X} sin venta donde ${O} sí vende</h3><span class="muted">${esc(LL)} · ${O} ≥ 3 u./mes · revisar stock, código activo y exhibición</span></div>
-        ${A.sinAfix.length ? `<div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th>Producto</th><th class="num">${O} prom./mes</th>${nA > 1 ? `<th class="num">${X} ${esc(PL)}</th>` : ""}</tr></thead><tbody>
-          ${A.sinAfix.slice(0, 30).map((q) => `<tr><td>${esc(q.f.t)}${q.f.act ? ' <span class="pill ok">activación</span>' : ""}</td><td>${esc(q.f.d)}</td><td class="num">${q.oProm.toFixed(1)}</td>${nA > 1 ? `<td class="num">${fmt(q.f.a[A.PA])}</td>` : ""}</tr>`).join("")}
-        </tbody></table></div>${A.sinAfix.length > 30 ? `<p class="small muted">… y ${A.sinAfix.length - 30} más (ver CSV).</p>` : ""}` : `<div class="empty">${X} vendió en todas las combinaciones donde ${O} vende.</div>`}
-      </div>`;
+      <details class="card panel det"><summary>Detalle por tienda</summary>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th>Cuadrante</th><th class="num">${O} u./mes</th><th class="num">Tend. ${O}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}${A.fac ? `<th class="num">${X} proy.</th>` : ""}<th class="num">Particip.</th><th class="num">Brecha u.</th><th class="num">Brecha S/</th></tr></thead><tbody>
+          ${A.tiendas.map((t) => `<tr><td><strong>${esc(t.lbl)}</strong>${t.act ? ' <span class="pill ok">activación</span>' : ""}</td><td><span class="pill ${t.cuad === "Atacar" ? "bad" : t.cuad === "Defender" ? "ok" : "muted"}">${t.cuad}</span></td><td class="num">${fmt(t.oProm)}</td><td class="num">${pct(t.oTrend)}</td>${t.a.map((v) => `<td class="num">${fmt(v)}</td>`).join("")}${A.fac ? `<td class="num"><b>${fmt(t.aProj)}</b></td>` : ""}<td class="num"><span class="pill ${semCls(t.share) === "warn" ? "warn" : semCls(t.share)}">${pct1(t.share)}</span></td><td class="num">${fmt(Math.max(0, t.gapU))}</td><td class="num">${t.gapS != null ? money(Math.max(0, t.gapS)) : "—"}</td></tr>`).join("")}
+        </tbody></table></div>
+      </details>
+
+      <details class="card panel det"><summary>Detalle por producto</summary>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Producto</th><th class="num">${O} u./mes</th><th class="num">Precio ${O}</th><th class="num">Precio ${X}</th>${A.afx.map((a) => `<th class="num">${X} ${esc(a.lbl.slice(0, 3))}</th>`).join("")}<th class="num">Particip.</th><th class="num">Brecha u.</th><th class="num">Brecha S/</th></tr></thead><tbody>
+          ${A.skus.map((s) => `<tr><td><strong>${esc(s.lbl)}</strong><div class="small muted">SKU ${esc(s.k)}${s.cod ? ` · cód. ${X} ${esc(s.cod)}` : ""}</div></td><td class="num">${fmt(s.oProm)}</td><td class="num">${s.pO != null ? "S/ " + s.pO.toFixed(2) : "—"}</td><td class="num">${s.pA != null ? "S/ " + s.pA.toFixed(2) : "—"}</td>${s.a.map((v) => `<td class="num">${fmt(v)}</td>`).join("")}<td class="num"><span class="pill ${semCls(s.share)}">${pct1(s.share)}</span></td><td class="num">${fmt(Math.max(0, s.gapU))}</td><td class="num">${s.gapS != null ? money(Math.max(0, s.gapS)) : "—"}</td></tr>`).join("")}
+        </tbody></table></div>
+      </details>
+
+      ${A.nA && A.tiendas.length > 1 ? `<details class="card panel det"><summary>Mapa tienda × producto (participación ${X})</summary>
+        <p class="small muted">Morado = en meta · lila = cerca · rojo claro = ${X} sin venta.</p>${heat(A)}</details>` : ""}
+
+      <details class="card panel det"${A.sinAfix.length ? "" : " hidden"}><summary>${X} sin venta donde ${O} sí vende (${A.sinAfix.length})</summary>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Tienda</th><th>Producto</th><th class="num">${O} u./mes</th>${A.nA > 1 ? `<th class="num">${X} ${esc(A.afx[A.PA].lbl)}</th>` : ""}</tr></thead><tbody>
+          ${A.sinAfix.map((f) => `<tr><td>${esc(f.t)}${f.act ? ' <span class="pill ok">activación</span>' : ""}</td><td>${esc(f.d)}</td><td class="num">${f.oProm.toFixed(1)}</td>${A.nA > 1 ? `<td class="num">${fmt(f.a[A.PA])}</td>` : ""}</tr>`).join("")}
+        </tbody></table></div>
+      </details>
+
+      <p class="small muted" style="margin:6px 4px 20px">Fuente: Excel de venta Sodimac (${esc(C.archivo)}). ${O}: venta mensual por SKU; ${X}: avance del producto equivalente al corte. Participación = ${X} ÷ (${X} + ${O} mes promedio de los meses completos). Proyección = avance × días del mes ÷ día de corte. Soles = unidades × precio de góndola mediano relevado por las promotoras (últimos 60 días). Meta configurable en config.js.</p>`;
 
     const $ = (id) => el.querySelector("#" + id);
     $("tCarga").onchange = (e) => { st.carga = e.target.value; st.tienda = ""; render(); };
     $("tAlc").onchange = (e) => { st.alcance = e.target.value; st.tienda = ""; render(); };
     $("tTienda").onchange = (e) => { st.tienda = e.target.value; render(); };
-    $("tReload").onclick = () => reload();
+    $("tPrint").onclick = () => { el.querySelectorAll("details").forEach((d) => (d.open = true)); document.body.classList.add("print-tiendas"); window.print(); setTimeout(() => document.body.classList.remove("print-tiendas"), 500); };
     $("tCsv").onclick = () => {
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const D = C.datos, dec = (n) => (n == null || !isFinite(n) ? "" : String(Math.round(n * 1000) / 1000).replace(".", ","));
-      const head = ["Cod. tienda", "Tienda", "Activación", "SKU Sodimac", "Cod. " + X, "Producto", ...D.meses.map((m) => O + " " + m.lbl + (m.parcial ? " (parcial)" : "")), O + " prom. meses completos", ...(D.avance || []).map((a) => X + " " + a.lbl), X + " vs " + O];
-      const lines = D.filas.map((f) => { const o = A.avgFull(f.m), a = (D.avance || []).length ? f.a[f.a.length - 1] : null; return [f.ct, f.t, enActivacion(f.t) ? "Sí" : "No", f.sku, f.cod, f.d, ...f.m, dec(o), ...f.a, o ? dec(a / o) : ""].map(q).join(";"); });
+      const head = ["Cod. tienda", "Tienda", "Activación", "SKU Sodimac", "Cod. " + X, "Producto", ...D.meses.map((m) => O + " " + m.lbl + (m.parcial ? " (parcial)" : "")), O + " prom. meses completos", ...(D.avance || []).map((a) => X + " " + a.lbl), X + " proyección", "Participación " + X, "Precio " + O, "Precio " + X, "Brecha a meta (u.)", "Brecha a meta (S/)"];
+      const rows = analyze({ ...C }).tiendas.flatMap((t) => t.filas);
+      const lines = rows.map((f) => [f.ct, f.t, f.act ? "Sí" : "No", f.sku, f.cod, f.d, ...f.m, dec(f.oProm), ...f.a, dec(f.aProj), dec(f.aProj + f.oProm ? f.aProj / (f.aProj + f.oProm) : null), dec(f.pO), dec(f.pA), dec(f.gapU), dec(f.gapS)].map(q).join(";"));
       const csv = "﻿" + head.map(q).join(";") + "\n" + lines.join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      a.download = `afix_vs_oatey_${(C.periodo || "").replace(/[^\w]+/g, "_")}.csv`;
+      a.download = `afix_vs_oatey_corte_${C.corte || C.datos.corte || "sin_fecha"}.csv`;
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
   }
 
   window.TiendasAdmin = {
     mount(c) { el = c; listeners.add(render); },
-    async show() { render(); await ensure(); },
+    async show() { render(); await ensure(); loadPrecios(); },
     _parseSheet: parseSheet, // para pruebas
   };
 })();

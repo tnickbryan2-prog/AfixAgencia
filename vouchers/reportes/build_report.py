@@ -6,8 +6,12 @@ Uso:
       -> imprime el resumen de KPIs para redactar el análisis
   python build_report.py render data.json analysis.json salida.pdf [--config vouchers/config.js]
   python build_report.py email  data.json analysis.json correo.html [--config vouchers/config.js]
+
+La página 4 (Afix vs. Oatey en Sodimac) sale de data["ventas"] (Excel cargado en la pestaña Precios) si existe.
 """
-import json, sys, html, datetime as dt
+import json, sys, os, html, datetime as dt
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ventas as V  # Afix vs. Oatey (pestaña Análisis tiendas)
 from collections import Counter, defaultdict
 
 TIENDAS = {
@@ -45,6 +49,7 @@ def load_portal_config(path):
     if pz: PREMIOS = re.findall(r'"([^"]+)"', pz.group(1)) or PREMIOS
     mn = re.search(r'STOCK_MINIMO:\s*(\d+)', js)
     if mn: STOCK_MIN = int(mn.group(1))
+    V.load_config(js, list(TIENDAS))
     return True
 
 D = lambda s: dt.date.fromisoformat(str(s)[:10])
@@ -390,7 +395,8 @@ def render_html(m, a, generado):
         <p class="mut xs" style="margin-top:8px">Fuente: portal de registro de vouchers (Supabase). Generado el {esc(generado)}. Constancia = días con al menos un voucher sobre días de activación. Datos de clientes anonimizados.</p>
       </div>{foot(3)}
     </div>"""
-    return f'<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte semanal vouchers {esc(rng)}</title><style>{CSS}</style></head><body>{p1}{p2}{p3}</body></html>'
+    p4 = V.render_page(m.get("ventas"), foot(4))
+    return f'<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte semanal vouchers {esc(rng)}</title><style>{CSS}{V.CSS}</style></head><body>{p1}{p2}{p3}{p4}</body></html>'
 
 
 # ------------------------------------------------------------------ EMAIL (HTML compatible con Gmail/Outlook)
@@ -453,6 +459,7 @@ def render_email(m, a, generado):
   {card("Tiendas activas", f'{m["tiendas_activas"]}/{m["n_tiendas"]}', "con registros")}{card("Promotoras activas", f'{m["promos_activas"]}/{m["n_promos"]}', "con registros")}{card("Premios", m["premios_tot"], "entregados")}{card("Mejor día", best, (f'{m["per_day"][m["best_day"]]} vouchers' if m["best_day"] else ""))}
 </tr></table></td></tr>
 {sec("Resumen ejecutivo", '<ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.5">' + "".join(f'<li style="margin-bottom:6px">{x}</li>' for x in a.get("resumen", [])) + "</ul>")}
+{V.render_email_section(m.get("ventas"), sec, tbl, th, td, bar)}
 {sec("Vouchers por día", tbl("<tr>"+th("Día")+th("")+th("Semana","right")+th("Previa","right")+"</tr>", days))}
 {sec("Ranking de promotoras", tbl("<tr>"+th("Promotora")+th("Sem.","right")+th("Prev.","right")+th("Var.","right")+th("Meta")+th("Const.","right")+th("Estado")+"</tr>", prom))}
 {sec("Rendimiento por tienda", tbl("<tr>"+th("Tienda")+th("Sem.","right")+th("Var.","right")+th("Particip.")+th("Días sin reg.","right")+"</tr>", tie))}
@@ -490,8 +497,12 @@ if __name__ == "__main__":
     if isinstance(data, list): data = data[0]
     if "data" in data and isinstance(data["data"], (dict, str)): data = data["data"] if isinstance(data["data"], dict) else json.loads(data["data"])
     m = compute(data)
+    if not V.CFG_TIENDAS: V.load_config("", list(TIENDAS))
+    m["ventas"] = V.compute(data)
     if cmd == "metrics":
         print(summary_text(m))
+        print()
+        print(V.summary_text(m["ventas"]))
     elif cmd == "render":
         a = json.load(open(sys.argv[3], encoding="utf-8"))
         gen = dt.datetime.now(dt.timezone(dt.timedelta(hours=-5))).strftime("%d/%m/%Y %H:%M") + " (Lima)"

@@ -31,5 +31,15 @@ select json_build_object(
       group by 1, 2) x), '[]'::json),
   'inicio_campana', (select min((created_at at time zone 'America/Lima')::date) from public.vouchers),
   'total_historico', (select count(*) from public.vouchers, params
-      where (created_at at time zone 'America/Lima')::date <= params.e)
+      where (created_at at time zone 'America/Lima')::date <= params.e),
+  -- Afix vs. Oatey: últimas cargas del Excel de venta Sodimac (pestaña Precios) y precios de góndola
+  'ventas', coalesce((select json_agg(x) from (
+      select id, corte, archivo, created_at, datos from public.ventas_cargas, params
+      where corte is null or corte <= params.e + 1
+      order by corte desc nulls last, created_at desc limit 4) x), '[]'::json),
+  'precios_ref', coalesce((select json_agg(x) from (
+      select marca as m, sku as s, percentile_cont(0.5) within group (order by coalesce(precio_promo, precio_regular)) as p
+      from public.precios_competencia, params
+      where disponible is not false and fecha between params.e - 60 and params.e + 1 and coalesce(precio_promo, precio_regular) > 0
+      group by 1, 2) x), '[]'::json)
 ) as data;
