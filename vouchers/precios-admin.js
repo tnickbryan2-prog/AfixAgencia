@@ -17,6 +17,7 @@
   let el = null, rows = [], loaded = false, loading = false, err = "";
   let st = { wk: null, tienda: "" };
 
+  const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y), k = s.length >> 1; return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; };
   const eff = (r) => (r.precio_promo != null ? Number(r.precio_promo) : r.precio_regular != null ? Number(r.precio_regular) : null);
 
   function compute() {
@@ -31,11 +32,17 @@
     const skus = [...new Set([...(PC.SKUS || []), ...W.map((r) => r.sku)])];
 
     // Por SKU × marca: promedio del precio efectivo (oferta si hay, si no regular), entre tiendas
+    // Precio atípico (con 3+ tiendas): más de 3 veces o menos de un tercio de la mediana del SKU
+    // → probable error de digitación; se muestra marcado y no entra al promedio.
     function agg(list, sku, marca) {
-      const xs = list.filter((r) => r.sku === sku && r.marcaN === marca && r.disponible !== false);
-      const ef = xs.map(eff).filter((v) => v != null);
-      const na = list.filter((r) => r.sku === sku && r.marcaN === marca && r.disponible === false).length;
-      return { n: ef.length, avg: ef.length ? ef.reduce((a, b) => a + b, 0) / ef.length : null, min: ef.length ? Math.min(...ef) : null, max: ef.length ? Math.max(...ef) : null, promo: xs.some((r) => r.promo_tipo || r.precio_promo != null), na };
+      const all = list.filter((r) => r.sku === sku && r.marcaN === marca);
+      const xs = all.filter((r) => r.disponible !== false && eff(r) != null).map((r) => ({ ...r, ef: eff(r) }));
+      const ref = median(xs.map((x) => x.ef));
+      xs.forEach((r) => { r.ref = ref; r.atipico = xs.length >= 3 && ref > 0 && (r.ef / ref > 3 || r.ef / ref < 1 / 3); });
+      const ok = xs.filter((r) => !r.atipico), ef = (ok.length ? ok : xs).map((r) => r.ef);
+      const top = ok.length ? ok.reduce((a, b) => (b.ef > a.ef ? b : a)) : null;
+      return { n: ef.length, avg: ef.length ? ef.reduce((a, b) => a + b, 0) / ef.length : null, min: ef.length ? Math.min(...ef) : null, max: ef.length ? Math.max(...ef) : null,
+        promo: xs.some((r) => r.promo_tipo || r.precio_promo != null), na: all.filter((r) => r.disponible === false).length, rows: all, atipicos: xs.filter((r) => r.atipico), top };
     }
     const matrix = skus.map((sku) => {
       const cells = marcas.map((m) => ({ m, ...agg(W, sku, m), prev: agg(P, sku, m).avg }));
@@ -84,17 +91,18 @@
         <button class="btn btn-primary" id="pCsv">Exportar precios (CSV)</button>
       </div>
 
+      ${(() => { const at = m.matrix.flatMap((r, ri) => r.cells.flatMap((c, ci) => c.atipicos.map((x) => ({ x, ri, ci, sku: r.sku })))); return at.length ? `<div class="alerts"><div class="alert-item bad"><b>⚠ ${at.length} precio${at.length === 1 ? "" : "s"} atípico${at.length === 1 ? "" : "s"} (probable error de digitación, no entra${at.length === 1 ? "" : "n"} al promedio):</b><span>${at.map((a) => `<a href="#" class="lnk" data-cell="${a.ri}|${a.ci}">${esc(a.x.marcaN)} ${esc(a.sku.replace(/^Pegamento\s+/i, ""))}: <b>${money(a.x.ef)}</b> en ${esc(a.x.tienda.replace(/^Sodimac\s+/i, ""))} (${esc(a.x.promotora)}, ${esc(fd(a.x.fecha))})</a>`).join(" · ")}</span></div></div>` : ""; })()}
       ${conBrecha.length ? `<div class="alerts"><div class="alert-item ${masCaro > masBarato ? "bad" : "info"}"><b>Afix vs. la competencia más barata:</b><span>Afix está más caro en ${masCaro} SKU${masCaro === 1 ? "" : "s"}, más barato en ${masBarato} y a la par en ${conBrecha.length - masCaro - masBarato} (precio efectivo promedio, con oferta si la hay).</span></div></div>` : ""}
 
       <div class="card panel">
         <div class="panel-head"><h3>Comparativo de precios por SKU</h3><span class="muted">Precio efectivo promedio entre tiendas (oferta si hay; si no, regular) · ▲▼ vs. semana anterior · verde = más barato</span></div>
         ${m.matrix.length ? `<div class="table-wrap"><table class="ind-table price-table">
           <thead><tr><th>SKU</th>${m.marcas.map((x) => `<th class="num">${esc(x)}</th>`).join("")}<th class="num">Afix vs. más barato</th></tr></thead>
-          <tbody>${m.matrix.map((r) => `<tr><td><strong>${esc(r.sku.replace(/^Pegamento\s+/i, ""))}</strong></td>${r.cells.map((c) => {
-            if (!c.n) return `<td class="num muted">${c.na ? '<span class="pill neu">No hay</span>' : "—"}</td>`;
+          <tbody>${m.matrix.map((r, ri) => `<tr><td><strong>${esc(r.sku.replace(/^Pegamento\s+/i, ""))}</strong></td>${r.cells.map((c, ci) => {
+            if (!c.n) return c.na ? `<td class="num muted clk" data-cell="${ri}|${ci}" title="Ver tiendas"><span class="pill neu">No hay</span></td>` : `<td class="num muted">—</td>`;
             const d = c.prev != null && c.avg != null ? (c.avg - c.prev) / c.prev : null;
-            return `<td class="num ${r.best != null && Math.abs(c.avg - r.best) < 0.005 ? "cheap" : ""}"><b>${money(c.avg)}</b>${c.promo ? ' <span class="pill warn">promo</span>' : ""}
-              <div class="small muted">${c.n > 1 ? `${money(c.min)}–${money(c.max)} · ${c.n} tiendas` : "1 tienda"}${d != null && Math.abs(d) >= 0.01 ? ` · <span class="${d > 0 ? "up-r" : "down-g"}">${d > 0 ? "▲" : "▼"}${Math.abs(Math.round(d * 100))}%</span>` : ""}</div></td>`;
+            return `<td class="num clk ${r.best != null && Math.abs(c.avg - r.best) < 0.005 ? "cheap" : ""}" data-cell="${ri}|${ci}" title="Clic para ver el precio de cada tienda"><b>${money(c.avg)}</b>${c.promo ? ' <span class="pill warn">promo</span>' : ""}${c.atipicos.length ? ` <span class="pill bad" title="Precio atípico excluido del promedio">⚠ ${c.atipicos.length}</span>` : ""}
+              <div class="small muted">${c.n > 1 ? `${money(c.min)}–${money(c.max)} · ${c.n} tiendas` : "1 tienda"}${c.n > 1 && c.top ? ` · más alto: ${esc(c.top.tienda.replace(/^Sodimac\s+/i, ""))}` : ""}${d != null && Math.abs(d) >= 0.01 ? ` · <span class="${d > 0 ? "up-r" : "down-g"}">${d > 0 ? "▲" : "▼"}${Math.abs(Math.round(d * 100))}%</span>` : ""}</div></td>`;
           }).join("")}<td class="num">${r.brecha == null ? '<span class="muted">—</span>' : `<span class="pill ${r.brecha > 0.02 ? "bad" : r.brecha < -0.02 ? "ok" : "neu"}">${pct(r.brecha)}</span>`}</td></tr>`).join("")}</tbody>
         </table></div>` : `<div class="empty">Aún no hay precios registrados para esta semana. Las promotoras los cargan en la pestaña 💲 Precios del formulario.</div>`}
       </div>
@@ -119,6 +127,7 @@
     $("pWk").onchange = (e) => { st.wk = e.target.value; render(); };
     $("pTienda").onchange = (e) => { st.tienda = e.target.value; render(); };
     $("pReload").onclick = () => reload();
+    el.querySelectorAll("[data-cell]").forEach((x) => (x.onclick = (e) => { e.preventDefault(); const [ri, ci] = x.dataset.cell.split("|").map(Number); openCell(m.matrix[ri], m.matrix[ri].cells[ci]); }));
     $("pVentas").onclick = () => { const c = document.getElementById("ventasCard"); c?.scrollIntoView({ behavior: "smooth", block: "start" }); document.getElementById("vFile")?.click(); };
     el.querySelectorAll("[data-vdel]").forEach((b) => (b.onclick = async () => {
       const v = m.visitas.find((x) => x.id === b.dataset.vdel);
@@ -137,6 +146,41 @@
       a.download = `precios_competencia_${key(new Date())}.csv`;
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
+  }
+
+  // ---------- Pop-up: precio de cada tienda para un SKU × marca ----------
+  function openCell(r, c) {
+    let box = document.getElementById("pModal");
+    if (!box) {
+      box = document.createElement("div"); box.id = "pModal"; box.className = "pmodal hidden";
+      document.body.appendChild(box);
+      box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-close]")) box.classList.add("hidden"); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") box.classList.add("hidden"); });
+    }
+    const list = c.rows.slice().sort((a, b) => (eff(b) ?? -1) - (eff(a) ?? -1));
+    const at = new Set(c.atipicos.map((x) => x.id)), refOf = Object.fromEntries(c.atipicos.map((x) => [x.id, x.ref]));
+    const vals = list.filter((x) => x.disponible !== false && eff(x) != null && !at.has(x.id)).map(eff);
+    let hi = vals.length > 1 ? Math.max(...vals) : null, lo = vals.length > 1 ? Math.min(...vals) : null;
+    if (hi != null && hi - lo < 0.005) hi = lo = null; // todas iguales: no hay más alto ni más bajo
+    box.innerHTML = `<div class="pmodal-card" role="dialog" aria-modal="true" aria-label="Precios por tienda">
+      <div class="pmodal-head"><div><div class="small muted">${esc(weekLabel(st.wk))}${st.tienda ? " · " + esc(st.tienda) : ""}</div><h3>${esc(c.m)} · ${esc(r.sku.replace(/^Pegamento\s+/i, ""))}</h3>
+        <div class="small muted">Promedio ${money(c.avg)}${hi != null ? ` · rango ${money(lo)}–${money(hi)} · diferencia ${money(hi - lo)} (${Math.round((hi / lo - 1) * 100)}%)` : ""}</div></div>
+        <button class="icon-btn" data-close title="Cerrar">✕</button></div>
+      <div class="table-wrap"><table class="ind-table pm-table"><thead><tr><th>Tienda</th><th>Promotora</th><th>Fecha</th><th class="num">Regular</th><th class="num">Oferta</th><th class="num">Efectivo</th><th>Observación</th><th></th></tr></thead><tbody>
+        ${list.map((x) => { const v = eff(x), a = at.has(x.id), isHi = !a && hi != null && v === hi, isLo = !a && lo != null && v === lo;
+          return `<tr class="${a ? "row-bad" : isHi ? "row-hi" : ""}"><td class="pm-t"><strong>${esc(x.tienda)}</strong></td><td data-l="Promotora">${esc(x.promotora)}</td><td class="nowrap" data-l="Fecha">${esc(fd(x.fecha))}</td>
+            <td class="num" data-l="Regular">${money(x.precio_regular)}</td><td class="num" data-l="Oferta">${money(x.precio_promo)}</td><td class="num pm-ef" data-l="Efectivo"><b>${x.disponible === false ? '<span class="pill neu">No hay</span>' : money(v)}</b></td>
+            <td class="pm-obs">${a ? `<span class="pill bad">⚠ atípico: ${v > refOf[x.id] ? Math.round(v / refOf[x.id]) + "× la" : "muy por debajo de la"} mediana (${money(refOf[x.id])})</span>` : isHi ? '<span class="pill warn">▲ precio más alto</span>' : isLo ? '<span class="pill ok">▼ precio más bajo</span>' : ""}${x.promo_tipo ? ` <span class="pill warn">${esc(x.promo_tipo)}</span>` : ""}${x.comentario ? `<div class="small muted">${esc(x.comentario)}</div>` : ""}</td>
+            <td class="pm-del"><button class="icon-btn" data-pdel="${esc(x.id)}" title="Eliminar este precio (si fue un error)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`; }).join("")}
+      </tbody></table></div>
+      <p class="small muted" style="margin:10px 0 0">Efectivo = oferta si la hay; si no, regular. Un precio atípico (más de 3 veces o menos de un tercio de la mediana, cuando hay 3 o más tiendas) se excluye del promedio. Si es un error, elimínalo y pide a la promotora que lo registre de nuevo.</p>
+    </div>`;
+    box.querySelectorAll("[data-pdel]").forEach((b) => (b.onclick = async () => {
+      const x = list.find((y) => y.id === b.dataset.pdel);
+      if (!x || !confirm(`¿Eliminar el precio ${money(eff(x))} de ${x.marcaN} ${x.sku} en ${x.tienda} (${x.promotora}, ${fd(x.fecha)})?`)) return;
+      try { await API.deletePrecio(x.id); box.classList.add("hidden"); await reload(); } catch (e) { alert("No se pudo eliminar: " + e.message); }
+    }));
+    box.classList.remove("hidden");
   }
 
   async function reload() {

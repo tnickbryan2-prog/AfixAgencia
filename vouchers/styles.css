@@ -449,3 +449,28 @@ details.det[open] > summary { margin-bottom: 12px; } details.det[open] > summary
   body.print-tiendas .card { break-inside: avoid; box-shadow: none; }
   body.print-tiendas * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Precios: pop-up por tienda */
+.ind-table td.clk { cursor: pointer; }
+.ind-table td.clk:hover { outline: 2px solid var(--purple); outline-offset: -2px; }
+a.lnk { color: inherit; text-decoration: underline dotted; }
+.pmodal { position: fixed; inset: 0; background: rgba(15, 8, 20, .55); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.pmodal-card { background: #fff; border-radius: 16px; max-width: 920px; width: 100%; max-height: 88vh; overflow: auto; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.pmodal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.pmodal-head h3 { margin: 2px 0; }
+.ind-table tr.row-bad td { background: #fdecec; }
+.ind-table tr.row-hi td { background: #fffaf0; }
+@media (max-width: 640px) {
+  .pmodal { padding: 8px; align-items: flex-end; }
+  .pmodal-card { padding: 14px; max-height: 92vh; }
+  .pm-table thead { display: none; }
+  .pm-table, .pm-table tbody { display: block; }
+  .pm-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 10px 6px; border-bottom: 1px solid var(--line); position: relative; }
+  .pm-table td { border: 0 !important; padding: 0 !important; text-align: left !important; font-size: 13px; }
+  .pm-table td[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12px; }
+  .pm-table td.pm-t { grid-column: 1 / -1; padding-right: 36px !important; }
+  .pm-table td.pm-obs { grid-column: 1 / -1; }
+  .pm-table td.pm-del { position: absolute; top: 6px; right: 0; }
+  .pm-table td { background: transparent !important; }
+  .pm-table tr.row-bad { background: #fdecec; border-radius: 10px; } .pm-table tr.row-hi { background: #fffaf0; border-radius: 10px; }
+}

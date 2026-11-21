@@ -168,6 +168,16 @@
       if (error) throw new Error(error.message);
     },
 
+    async deletePrecio(id) {
+      if (CFG.DEMO) {
+        const cur = (await API.listPrecios()).filter((r) => r.id !== id);
+        localStorage.setItem("precios_demo", JSON.stringify(cur));
+        return;
+      }
+      const { error } = await client().from("precios_competencia").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+
     async getSession() {
       if (CFG.DEMO) return sessionStorage.getItem("demo_admin") ? { user: { email: "demo@admin" } } : null;
       const { data } = await client().auth.getSession();
