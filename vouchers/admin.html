@@ -118,8 +118,8 @@
    </section>
    <section id="tab-indicadores" class="hidden"></section>
    <section id="tab-stock" class="hidden"></section>
-   <section id="tab-precios" class="hidden"><div id="precios-main"></div><div id="precios-ventas"></div></section>
-   <section id="tab-tiendas" class="hidden"></section>
+   <section id="tab-precios" class="hidden"></section>
+   <section id="tab-tiendas" class="hidden"><div id="tiendas-main"></div><div id="tiendas-ventas"></div></section>
    <section id="tab-sos" class="hidden"><iframe id="sosFrame" title="Share of Shelf" style="width:100%;border:0;display:block;min-height:600px;background:transparent" scrolling="no"></iframe></section>
   </main>
 
@@ -133,8 +133,8 @@
   <script src="api.js?v=24"></script>
   <script src="metrics.js?v=18"></script>
   <script src="stock.js?v=18"></script>
-  <script src="precios-admin.js?v=24"></script>
-  <script src="ventas-tiendas.js?v=22"></script>
+  <script src="precios-admin.js?v=25"></script>
+  <script src="ventas-tiendas.js?v=25"></script>
   <script>
     (function () {
       const CFG = window.APP_CONFIG;
@@ -353,9 +353,9 @@
 
       Metrics.mount($("tab-indicadores"));
       Stock.mount($("tab-stock"));
-      PreciosAdmin.mount($("precios-main"));
-      VentasUpload.mount($("precios-ventas"));
-      TiendasAdmin.mount($("tab-tiendas"));
+      PreciosAdmin.mount($("tab-precios"));
+      TiendasAdmin.mount($("tiendas-main"));
+      VentasUpload.mount($("tiendas-ventas"));
       document.querySelectorAll("#tabs .tab").forEach((b) => b.addEventListener("click", () => {
         document.querySelectorAll("#tabs .tab").forEach((x) => x.classList.toggle("active", x === b));
         $("tab-registros").classList.toggle("hidden", b.dataset.tab !== "registros");
@@ -365,8 +365,8 @@
         $("tab-sos").classList.toggle("hidden", b.dataset.tab !== "sos");
         $("tab-tiendas").classList.toggle("hidden", b.dataset.tab !== "tiendas");
         if (b.dataset.tab === "sos") openSos();
-        if (b.dataset.tab === "precios") { PreciosAdmin.show(); VentasUpload.show(); }
-        if (b.dataset.tab === "tiendas") TiendasAdmin.show();
+        if (b.dataset.tab === "precios") PreciosAdmin.show();
+        if (b.dataset.tab === "tiendas") { TiendasAdmin.show(); VentasUpload.show(); }
         if (b.dataset.tab === "indicadores") Metrics.render();
         if (b.dataset.tab === "stock") Stock.show();
         try { sessionStorage.setItem("admin_tab", b.dataset.tab); } catch {}

@@ -161,7 +161,7 @@
         </div>`;
     } else {
       body = `
-        <p class="small muted" style="margin:0 0 12px">Sube cada semana el Excel crudo de venta Sodimac (una fila por tienda × SKU): meses Ene, Feb, … = venta Oatey; columnas de avance (Octubre, Noviembre…) = venta Afix. Se guarda en el historial y el resumen aparece en la pestaña <b>Análisis tiendas</b>.</p>
+        <p class="small muted" style="margin:0 0 12px">Sube cada semana el Excel crudo de venta Sodimac (una fila por tienda × SKU): meses Ene, Feb, … = venta Oatey; columnas de avance (Octubre, Noviembre…) = venta Afix. Se guarda en el historial y el análisis de arriba se actualiza con la nueva carga.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" id="vPick">📥 Cargar Excel de ventas por SKU</button>
           <input type="file" id="vFile" accept=".xlsx,.xls,.xlsm,.csv" class="hidden" />
@@ -191,6 +191,7 @@
           const p = await parseFile(f);
           const now = new Date(), y = now.getFullYear(), maxM = Math.max(...p.meses.map((m) => m.i));
           upMsg = ""; preview = { p, file: f.name, anio: maxM > now.getMonth() + 1 ? y - 1 : y, corte: todayLima() };
+          setTimeout(() => document.getElementById("ventasCard")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
         } catch (ex) { upMsg = "No se pudo leer el archivo: " + ex.message; }
         renderUpload();
       };
@@ -213,10 +214,10 @@
     saving = true; renderUpload();
     try {
       await API.addVentasCarga({ archivo: file, anio, periodo, corte, filas: p.filas.length, datos });
-      preview = null; upMsg = `✓ Carga guardada (${periodo}). Ya puedes verla en Análisis tiendas.`;
+      preview = null; upMsg = `✓ Carga guardada (${periodo}).`;
       await reload();
       st.carga = null; render();
-      document.querySelector('#tabs .tab[data-tab="tiendas"]')?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) { alert("No se pudo guardar: " + e.message); }
     saving = false; renderUpload();
   }
@@ -449,7 +450,7 @@
     if (!el) return;
     if (!loaded) { el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">${loading ? "Cargando ventas…" : esc(err)}</div></div>`; return; }
     if (!cargas.length) {
-      el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">Aún no hay ventas cargadas. Ve a la pestaña <b>Precios</b> y usa <b>📥 Cargar ventas por SKU</b>.</div></div>`;
+      el.innerHTML = `<div class="card panel" style="margin-top:-36px"><div class="empty">Aún no hay ventas cargadas. Usa <b>📥 Cargar Excel de ventas por SKU</b> (abajo) para subir el primero.</div></div>`;
       return;
     }
     const C = cargas.find((c) => c.id === st.carga) || cargas[0]; st.carga = C.id;
@@ -486,6 +487,7 @@
         <div class="field"><label for="tTienda">Tienda</label><select id="tTienda"><option value="">Todas</option>${A.tiendasAll.slice().sort((a, b) => a.localeCompare(b, "es")).map((t) => `<option${t === st.tienda ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
         <div class="spacer"></div>
         <button class="btn btn-ghost" id="tPrint">Imprimir / PDF</button>
+        <button class="btn btn-ghost" id="tUp" title="Subir el Excel semanal de venta Sodimac">📥 Cargar Excel</button>
         <button class="btn btn-primary" id="tCsv">Exportar (CSV)</button>
       </div>
 
@@ -533,6 +535,7 @@
     $("tAlc").onchange = (e) => { st.alcance = e.target.value; st.tienda = ""; render(); };
     $("tTienda").onchange = (e) => { st.tienda = e.target.value; render(); };
     $("tPrint").onclick = () => { el.querySelectorAll("details").forEach((d) => (d.open = true)); document.body.classList.add("print-tiendas"); window.print(); setTimeout(() => document.body.classList.remove("print-tiendas"), 500); };
+    $("tUp").onclick = () => { document.getElementById("ventasCard")?.scrollIntoView({ behavior: "smooth", block: "start" }); document.getElementById("vFile")?.click(); };
     $("tCsv").onclick = () => {
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const D = C.datos, dec = (n) => (n == null || !isFinite(n) ? "" : String(Math.round(n * 1000) / 1000).replace(".", ","));
