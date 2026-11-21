@@ -474,3 +474,7 @@ a.lnk { color: inherit; text-decoration: underline dotted; }
   .pm-table td { background: transparent !important; }
   .pm-table tr.row-bad { background: #fdecec; border-radius: 10px; } .pm-table tr.row-hi { background: #fffaf0; border-radius: 10px; }
 }
+.pm-form { margin-top: 12px; border: 1px solid var(--purple); background: var(--purple-soft); border-radius: 12px; padding: 12px; }
+.pm-form-h { font-size: 13.5px; margin-bottom: 8px; }
+.pm-form .field label input[type=checkbox] { accent-color: var(--purple); margin-right: 6px; }
+@media (max-width: 640px) { .pm-form .ind-toolbar .btn { flex: 1; } }

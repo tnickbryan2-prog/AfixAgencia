@@ -168,6 +168,17 @@
       if (error) throw new Error(error.message);
     },
 
+    async updatePrecio(id, row) {
+      if (CFG.DEMO) {
+        const cur = (await API.listPrecios()).map((r) => (r.id === id ? { ...r, ...row, editado_por: "demo", editado_at: new Date().toISOString(), valor_original: r.valor_original || { precio_regular: r.precio_regular, precio_promo: r.precio_promo, disponible: r.disponible } } : r));
+        localStorage.setItem("precios_demo", JSON.stringify(cur));
+        return;
+      }
+      const { data, error } = await client().from("precios_competencia").update(row).eq("id", id).select("id");
+      if (error) throw new Error(error.message);
+      if (!data || !data.length) throw new Error("No tienes permiso para editar precios (revisa que tu correo esté en admin_emails).");
+    },
+
     async deletePrecio(id) {
       if (CFG.DEMO) {
         const cur = (await API.listPrecios()).filter((r) => r.id !== id);

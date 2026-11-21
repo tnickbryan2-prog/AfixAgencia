@@ -170,17 +170,49 @@
         ${list.map((x) => { const v = eff(x), a = at.has(x.id), isHi = !a && hi != null && v === hi, isLo = !a && lo != null && v === lo;
           return `<tr class="${a ? "row-bad" : isHi ? "row-hi" : ""}"><td class="pm-t"><strong>${esc(x.tienda)}</strong></td><td data-l="Promotora">${esc(x.promotora)}</td><td class="nowrap" data-l="Fecha">${esc(fd(x.fecha))}</td>
             <td class="num" data-l="Regular">${money(x.precio_regular)}</td><td class="num" data-l="Oferta">${money(x.precio_promo)}</td><td class="num pm-ef" data-l="Efectivo"><b>${x.disponible === false ? '<span class="pill neu">No hay</span>' : money(v)}</b></td>
-            <td class="pm-obs">${a ? `<span class="pill bad">⚠ atípico: ${v > refOf[x.id] ? Math.round(v / refOf[x.id]) + "× la" : "muy por debajo de la"} mediana (${money(refOf[x.id])})</span>` : isHi ? '<span class="pill warn">▲ precio más alto</span>' : isLo ? '<span class="pill ok">▼ precio más bajo</span>' : ""}${x.promo_tipo ? ` <span class="pill warn">${esc(x.promo_tipo)}</span>` : ""}${x.comentario ? `<div class="small muted">${esc(x.comentario)}</div>` : ""}</td>
-            <td class="pm-del"><button class="icon-btn" data-pdel="${esc(x.id)}" title="Eliminar este precio (si fue un error)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`; }).join("")}
+            <td class="pm-obs">${a ? `<span class="pill bad">⚠ atípico: ${v > refOf[x.id] ? Math.round(v / refOf[x.id]) + "× la" : "muy por debajo de la"} mediana (${money(refOf[x.id])})</span>` : isHi ? '<span class="pill warn">▲ precio más alto</span>' : isLo ? '<span class="pill ok">▼ precio más bajo</span>' : ""}${x.promo_tipo ? ` <span class="pill warn">${esc(x.promo_tipo)}</span>` : ""}${x.comentario ? `<div class="small muted">${esc(x.comentario)}</div>` : ""}${x.editado_at ? `<div class="small" style="color:var(--purple)">✎ Corregido por ${esc(x.editado_por || "admin")} el ${esc(fd(String(x.editado_at).slice(0, 10)))}${x.valor_original ? ` · antes: ${x.valor_original.disponible === false ? "No hay" : money(x.valor_original.precio_promo ?? x.valor_original.precio_regular)}` : ""}</div>` : ""}</td>
+            <td class="pm-del nowrap"><button class="icon-btn" data-pedit="${esc(x.id)}" title="Corregir este precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn" data-pdel="${esc(x.id)}" title="Eliminar este precio (si fue un error)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`; }).join("")}
       </tbody></table></div>
-      <p class="small muted" style="margin:10px 0 0">Efectivo = oferta si la hay; si no, regular. Un precio atípico (más de 3 veces o menos de un tercio de la mediana, cuando hay 3 o más tiendas) se excluye del promedio. Si es un error, elimínalo y pide a la promotora que lo registre de nuevo.</p>
+      <div id="pmEdit"></div>
+      <p class="small muted" style="margin:10px 0 0">Efectivo = oferta si la hay; si no, regular. Un precio atípico (más de 3 veces o menos de un tercio de la mediana, cuando hay 3 o más tiendas) se excluye del promedio. Si es un error, corrígelo con el lápiz (queda registrado quién lo cambió y el valor original) o elimínalo.</p>
     </div>`;
+    box.querySelectorAll("[data-pedit]").forEach((b) => (b.onclick = () => {
+      const x = list.find((y) => y.id === b.dataset.pedit); if (!x) return;
+      const ed = box.querySelector("#pmEdit");
+      ed.innerHTML = `<div class="pm-form"><div class="pm-form-h">Corregir precio · <b>${esc(x.tienda)}</b> <span class="muted">(${esc(x.promotora)}, ${esc(fd(x.fecha))})</span></div>
+        <div class="ind-toolbar">
+          <div class="field"><label for="peReg">Precio regular (S/)</label><input id="peReg" type="number" inputmode="decimal" min="0" step="0.01" value="${x.precio_regular ?? ""}" /></div>
+          <div class="field"><label for="peOf">Precio oferta (S/)</label><input id="peOf" type="number" inputmode="decimal" min="0" step="0.01" value="${x.precio_promo ?? ""}" placeholder="Sin oferta" /></div>
+          <div class="field"><label><input id="peNa" type="checkbox"${x.disponible === false ? " checked" : ""}/> No hay en góndola</label></div>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" id="peCancel">Cancelar</button><button class="btn btn-primary" id="peSave">Guardar corrección</button>
+        </div><div id="peMsg" class="small" style="color:var(--coral);margin-top:6px"></div></div>`;
+      ed.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const g = (id) => ed.querySelector("#" + id);
+      g("peCancel").onclick = () => (ed.innerHTML = "");
+      g("peSave").onclick = async () => {
+        const na = g("peNa").checked, reg = g("peReg").value === "" ? null : Number(g("peReg").value), of = g("peOf").value === "" ? null : Number(g("peOf").value);
+        if (!na && (reg == null || !(reg > 0))) return (g("peMsg").textContent = "Ingresa un precio regular mayor a 0, o marca «No hay en góndola».");
+        if (of != null && !(of > 0)) return (g("peMsg").textContent = "La oferta debe ser mayor a 0 (o déjala vacía).");
+        if (!na && of != null && of >= reg) return (g("peMsg").textContent = "La oferta debe ser menor que el precio regular.");
+        const antes = x.disponible === false ? "No hay" : money(eff(x)), despues = na ? "No hay" : money(of ?? reg);
+        if (!confirm(`¿Corregir ${x.marcaN} ${x.sku} en ${x.tienda}?\n${antes} → ${despues}`)) return;
+        g("peSave").disabled = true;
+        try { await API.updatePrecio(x.id, na ? { disponible: false, precio_regular: null, precio_promo: null } : { disponible: true, precio_regular: reg, precio_promo: of }); await reload(); reopen(r.sku, c.m); }
+        catch (e) { g("peMsg").textContent = "No se pudo guardar: " + e.message; g("peSave").disabled = false; }
+      };
+    }));
     box.querySelectorAll("[data-pdel]").forEach((b) => (b.onclick = async () => {
       const x = list.find((y) => y.id === b.dataset.pdel);
       if (!x || !confirm(`¿Eliminar el precio ${money(eff(x))} de ${x.marcaN} ${x.sku} en ${x.tienda} (${x.promotora}, ${fd(x.fecha)})?`)) return;
       try { await API.deletePrecio(x.id); box.classList.add("hidden"); await reload(); } catch (e) { alert("No se pudo eliminar: " + e.message); }
     }));
     box.classList.remove("hidden");
+  }
+
+  function reopen(sku, marca) {
+    const m = compute(), r = m.matrix.find((x) => x.sku === sku), c = r && r.cells.find((x) => x.m === marca);
+    if (r && c) openCell(r, c); else document.getElementById("pModal")?.classList.add("hidden");
   }
 
   async function reload() {
