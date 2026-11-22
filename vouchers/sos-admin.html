@@ -103,6 +103,20 @@ label.f input:focus,label.f select:focus,label.f textarea:focus{outline:2px soli
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:#fff;cursor:pointer;user-select:none}
 .chip .dot{width:10px;height:10px;border-radius:3px}
 .chip.off{opacity:.4}
+.hist-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-top:10px}
+.hv-group{display:inline-flex;gap:6px;flex-wrap:wrap}
+.chip.hv.on{background:var(--p);color:#fff;border-color:var(--p)}
+.hv-range{display:flex;gap:10px}
+.hday{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.hday-h{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;font-size:13px}
+
+.hday-h span{color:var(--ink2)}
+.hcells{display:flex;gap:6px;flex-wrap:wrap}
+.hc-w{display:flex;flex-direction:column;align-items:center;gap:2px}
+.hcell{border:0;border-radius:9px;padding:5px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;font:inherit;line-height:1.15;min-width:58px}
+.hcell b{font-size:13px}.hcell span{font-size:10.5px;opacity:.8}
+.hcell.ok{background:#E3F6EC;color:#11733f}.hcell.bad{background:#FCE7E7;color:#B42318}
+.hcell:hover{outline:2px solid var(--p)}
 .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
 .b-own{background:var(--p-soft);color:var(--p)}
 .b-comp{background:#EEF0F4;color:#475069}
@@ -292,7 +306,15 @@ input[type=range]{width:100%;accent-color:var(--p)}
       <label class="f">Tienda<select id="hTienda"><option value="">Todas</option></select></label>
       <label class="f">Categoría<select id="hCat"><option value="">Todas</option></select></label>
       <label class="f">Promotora<select id="hProm"><option value="">Todas</option></select></label>
-      <label class="f">Periodo<select id="hPer"><option value="0">Todo</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option></select></label>
+      <label class="f">Periodo<select id="hPer"><option value="0">Todo</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="r">Rango de fechas…</option></select></label>
+    </div>
+    <div class="row hist-tools">
+      <span class="hv-group" role="tablist" aria-label="Ver historial">
+        <button class="chip hv" data-hv="fecha">📅 Por fecha</button>
+        <button class="chip hv" data-hv="tienda">🏬 Por tienda</button>
+        <button class="chip hv" data-hv="lista">📋 Lista</button>
+      </span>
+      <span class="hv-range" id="hRange" style="display:none"><label class="f">Desde<input type="date" id="hDesde"></label><label class="f">Hasta<input type="date" id="hHasta"></label></span>
     </div>
   </div>
   <div id="histBody"></div>
@@ -331,7 +353,7 @@ input[type=range]{width:100%;accent-color:var(--p)}
 </main>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="config.js?v=18"></script>
+<script src="config.js?v=22"></script>
 <script src="sos-api.js?v=18"></script>
 
 <script>
@@ -869,10 +891,30 @@ async function saveReport(c){
 }
 function fillDatalists(){const u=a=>[...new Set(a.filter(Boolean))].sort();const AC=window.APP_CONFIG||{};$("#dlTiendas").innerHTML=u([...hist.map(h=>h.meta?.tienda),...(AC.TIENDAS||[]).map(t=>t.tienda||t)]).map(x=>`<option>${esc(x)}</option>`).join("");$("#dlCiudades").innerHTML=u(hist.map(h=>h.meta?.ciudad)).map(x=>`<option>${esc(x)}</option>`).join("");
   const sel=(id,vals)=>{const el=$(id),v=el.value;el.innerHTML='<option value="">Todas</option>'+u(vals).map(x=>`<option ${x===v?"selected":""}>${esc(x)}</option>`).join("")};sel("#hTienda",hist.map(h=>h.meta?.tienda));sel("#hCat",hist.map(h=>h.meta?.categoria));sel("#hProm",hist.map(h=>h.meta?.promotora))}
-["#hTienda","#hCat","#hProm","#hPer"].forEach(s=>$(s).onchange=renderHist);
+["#hTienda","#hCat","#hProm","#hPer","#hDesde","#hHasta"].forEach(s=>$(s).onchange=()=>{$("#hRange").style.display=$("#hPer").value==="r"?"flex":"none";renderHist()});
+let histView=ls("sos_hist_view")||"fecha";
+function syncHv(){$$(".hv").forEach(b=>b.classList.toggle("on",b.dataset.hv===histView))}
+$$(".hv").forEach(b=>b.onclick=()=>{histView=b.dataset.hv;ls("sos_hist_view",histView);syncHv();renderHist()});syncHv();
+const limaDay=d=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/Lima"}).format(new Date(d));
+const fDay=k=>{const t=new Date(k+"T12:00:00").toLocaleDateString("es-PE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});return t.charAt(0).toUpperCase()+t.slice(1)};
+const fShort=k=>new Date(k+"T12:00:00").toLocaleDateString("es-PE",{day:"2-digit",month:"short"});
 let histCharts=[];
 function rivAvg(F,names){if(!names[0]||!F.length)return 0;return F.reduce((t,h)=>t+(h.resumen.brands||[]).filter(b=>isOwnName(b.m,names)).reduce((a,b)=>a+b.s,0),0)/F.length}
-function filtered(){const t=$("#hTienda").value,ca=$("#hCat").value,p=$("#hProm").value,d=+$("#hPer").value;const lim=d?Date.now()-d*864e5:0;return hist.filter(h=>h&&h.resumen&&(!t||h.meta?.tienda===t)&&(!ca||h.meta?.categoria===ca)&&(!p||h.meta?.promotora===p)&&(!lim||new Date(h.fecha).getTime()>=lim))}
+function filtered(){const t=$("#hTienda").value,ca=$("#hCat").value,p=$("#hProm").value,pv=$("#hPer").value,d=pv==="r"?0:+pv;const lim=d?Date.now()-d*864e5:0;const de=pv==="r"?$("#hDesde").value:"",ha=pv==="r"?$("#hHasta").value:"";return hist.filter(h=>{if(!h||!h.resumen)return false;const k=limaDay(h.fecha);return(!t||h.meta?.tienda===t)&&(!ca||h.meta?.categoria===ca)&&(!p||h.meta?.promotora===p)&&(!lim||new Date(h.fecha).getTime()>=lim)&&(!de||k>=de)&&(!ha||k<=ha)})}
+/* Historial por fecha y por tienda (los análisis nunca se sobrescriben: cada envío queda guardado con su fecha) */
+function histBlock(F){
+  const ok=h=>h.resumen.ownSos>=h.resumen.meta;
+  const cell=h=>`<button class="hcell ${ok(h)?"ok":"bad"}" data-open="${esc(h.id)}" title="${esc(h.meta?.tienda)} · ${new Date(h.fecha).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} · abrir reporte"><b>${f1(h.resumen.ownSos)}%</b><span>${h.resumen.score??"—"} pts</span></button>`;
+  if(histView==="fecha"){
+    const days=[...new Set(F.map(h=>limaDay(h.fecha)))].sort().reverse();
+    return `<div class="card"><h3>Historial por fecha</h3><p class="sub">Cada día con auditorías; toca una fila para abrir el reporte completo de ese día.</p>${days.map(k=>{const a=F.filter(h=>limaDay(h.fecha)===k);const av=a.reduce((s,h)=>s+h.resumen.ownSos,0)/a.length;return`<div class="hday"><div class="hday-h"><b>${esc(fDay(k))}</b><span>${a.length} góndola(s) · SoS propio prom. <b>${f1(av)}%</b> · ${a.filter(ok).length} cumplen meta</span></div><div class="tscroll"><table><thead><tr><th>Hora</th><th>Tienda</th><th>Categoría</th><th>Promotora</th><th class="n">SoS propio</th><th class="n">vs visita anterior</th><th class="n">Score</th><th>Líder</th><th>Estado</th></tr></thead><tbody>${a.map(h=>{const pv=prevVisit(h);const d=pv?h.resumen.ownSos-pv.resumen.ownSos:null;return`<tr class="hist-row" data-id="${esc(h.id)}"><td>${new Date(h.fecha).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit",timeZone:"America/Lima"})}</td><td><b>${esc(h.meta?.tienda)}</b></td><td>${esc(h.meta?.categoria||"—")}</td><td>${esc(h.meta?.promotora||"—")}</td><td class="n"><b>${f1(h.resumen.ownSos)}%</b></td><td class="n">${d==null?'<span class="mini">primera visita</span>':dl(d," pp")}</td><td class="n" style="font-weight:800;color:${h.resumen.score!=null?scColor(h.resumen.score):"inherit"}">${h.resumen.score??"—"}</td><td>${esc(h.resumen.lider)}</td><td><span class="badge ${ok(h)?"b-ok":"b-bad"}">${ok(h)?"Cumple":"No cumple"}</span></td></tr>`}).join("")}</tbody></table></div></div>`}).join("")}</div>`;
+  }
+  if(histView==="tienda"){
+    const ts=[...new Set(F.map(h=>h.meta?.tienda||"—"))].sort((a,b)=>a.localeCompare(b,"es"));
+    return `<div class="card"><h3>Historial por tienda</h3><p class="sub">Evolución de cada góndola visita a visita (de la más antigua a la más reciente). Verde = cumple la meta. Toca una visita para abrir su reporte.</p><div class="tscroll"><table><thead><tr><th>Tienda</th><th class="n">Visitas</th><th>Primera</th><th>Última</th><th class="n">SoS último</th><th class="n">Cambio total</th><th>Visitas (fecha · SoS · score)</th></tr></thead><tbody>${ts.map(t=>{const a=F.filter(h=>(h.meta?.tienda||"—")===t).sort((x,y)=>String(x.fecha).localeCompare(String(y.fecha)));const first=a[0],last=a[a.length-1];return`<tr><td><b>${esc(t)}</b><div class="mini">${esc([...new Set(a.map(h=>h.meta?.categoria).filter(Boolean))].join(", "))}</div></td><td class="n">${a.length}</td><td>${fShort(limaDay(first.fecha))}</td><td>${fShort(limaDay(last.fecha))}</td><td class="n"><b>${f1(last.resumen.ownSos)}%</b></td><td class="n">${a.length>1?dl(last.resumen.ownSos-first.resumen.ownSos," pp"):'<span class="mini">—</span>'}</td><td><div class="hcells">${a.map(h=>`<div class="hc-w"><span class="mini">${fShort(limaDay(h.fecha))}</span>${cell(h)}</div>`).join("")}</div></td></tr>`}).join("")}</tbody></table></div></div>`;
+  }
+  return "";
+}
 function renderHist(){
   histCharts.forEach(c=>c.destroy());histCharts=[];
   const body=$("#histBody");
@@ -908,11 +950,12 @@ function renderHist(){
     <div class="card"><h3>Evolución del SoS propio</h3><div class="chartbox"><canvas id="hcTrend"></canvas></div></div>
   </div>
   <div class="card"><h3>Participación promedio por marca</h3><p class="sub">Promedio de SoS en las góndolas filtradas.</p><div class="chartbox" style="height:${Math.max(220,compArr.length*34+50)}px"><canvas id="hcComp"></canvas></div></div>
-  <div class="card"><h3>Auditorías</h3><div class="tscroll"><table><thead><tr><th>Fecha</th><th>Tienda</th><th>Categoría</th><th>Promotora</th><th class="n">SoS propio</th><th class="n">Metros</th><th class="n">Score</th><th class="n">POP</th><th>Líder</th><th>Estado</th></tr></thead><tbody>
+  ${histBlock(F)}
+  <div class="card" style="${histView==="lista"?"":"display:none"}"><h3>Auditorías</h3><div class="tscroll"><table><thead><tr><th>Fecha</th><th>Tienda</th><th>Categoría</th><th>Promotora</th><th class="n">SoS propio</th><th class="n">Metros</th><th class="n">Score</th><th class="n">POP</th><th>Líder</th><th>Estado</th></tr></thead><tbody>
   ${F.map(h=>{const ok=h.resumen.ownSos>=h.resumen.meta;return`<tr class="hist-row" data-id="${esc(h.id)}"><td>${new Date(h.fecha).toLocaleDateString("es-PE",{day:"2-digit",month:"short"})}</td><td><b>${esc(h.meta?.tienda)}</b><div class="mini">${esc(h.meta?.ciudad||"")}</div></td><td>${esc(h.meta?.categoria||"—")}</td><td>${esc(h.meta?.promotora||"—")}</td><td class="n"><b>${f1(h.resumen.ownSos)}%</b></td><td class="n">${f2(h.resumen.ownMetros)}</td><td class="n" style="font-weight:800;color:${h.resumen.score!=null?scColor(h.resumen.score):"inherit"}">${h.resumen.score??"—"}</td><td class="n">${h.resumen.ops??"—"}</td><td>${esc(h.resumen.lider)}</td><td><span class="badge ${ok?"b-ok":"b-bad"}">${ok?"Cumple":"No cumple"}</span></td></tr>`}).join("")}
   </tbody></table></div><p class="mini" style="margin:8px 0 0">Toca una fila para abrir el reporte completo.</p></div>`;
   wire();
-  $$(".hist-row").forEach(tr=>tr.onclick=()=>{const h=hist.find(x=>x.id===tr.dataset.id);if(h)openReport(rowToReport(h.row))});
+  $$(".hist-row,[data-open]").forEach(tr=>tr.onclick=()=>{const h=hist.find(x=>x.id===(tr.dataset.id||tr.dataset.open));if(h)openReport(rowToReport(h.row))});
   if(!window.Chart)return;
   histCharts.push(new Chart($("#hcStore"),{type:"bar",data:{labels:byStore.map(s=>s.t),datasets:[{label:"SoS propio",data:byStore.map(s=>+s.last.toFixed(1)),backgroundColor:byStore.map(s=>s.last>=s.meta?"#74119E":"#C93F3F"),borderRadius:6,barThickness:20}]},options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>{const s=byStore[x.dataIndex];return` ${f1(s.last)}% (meta ${f1(s.meta)}%) · ${f2(s.metros)} m · ${s.n} visita(s)`}}}},scales:{x:{max:100,ticks:{callback:v=>v+"%"},grid:{color:"#F1EEF5"}},y:{grid:{display:false}}}}}));
   const tr=[...F].reverse();

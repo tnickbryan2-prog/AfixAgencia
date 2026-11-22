@@ -97,3 +97,11 @@ supabase/schema.sql Tabla, bucket de fotos y seguridad
   - El último mes se marca como **parcial** si vende menos del 60% de la mediana; se puede corregir en la vista previa antes de guardar.
 - **Guardado:** tabla `ventas_cargas` (Supabase, solo admins). Cada carga queda en el historial y se puede eliminar.
 - **Análisis tiendas (Afix vs. Oatey):** Afix del mes como % del mes promedio Oatey y participación estimada, resumen automático, gráfico mensual de ambas marcas, activación vs. tiendas sin activación (según `TIENDAS` de `config.js`), comparativo por tienda y por producto, mapa tienda × producto, combinaciones donde Afix no vende y Oatey sí, y exportación CSV.
+
+---
+
+## Historiales (no se elimina nada)
+
+- **Precios → Historial de relevamientos:** todos los relevamientos de todas las semanas, agrupados por fecha, con filtros Desde/Hasta, Tienda y Marca. Clic en una fila → precios de ese relevamiento. **Evolución de precios por fin de semana:** precio efectivo promedio por SKU y marca en los últimos 8 fines de semana.
+- Los relevamientos de precios **no se pueden eliminar** (la política de borrado en `precios_competencia` está desactivada: `using (false)`). Los errores se corrigen con el lápiz ✎; quedan `editado_por`, `editado_at` y `valor_original`.
+- **Share of Shelf → Historial:** vistas **📅 Por fecha** (auditorías de cada día con cambio vs. la visita anterior de esa tienda), **🏬 Por tienda** (línea de tiempo de visitas con SoS y score) y **📋 Lista**; filtro de periodo con **rango de fechas**.

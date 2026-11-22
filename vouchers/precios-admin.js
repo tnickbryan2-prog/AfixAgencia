@@ -113,25 +113,19 @@
         </tbody></table></div>` : '<div class="empty">Sin promociones registradas esta semana.</div>'}
       </div>
 
-      <div class="card panel">
-        <div class="panel-head"><h3>Relevamientos de la semana</h3><span class="muted">Una fila por marca registrada en una tienda</span></div>
-        ${m.visitas.length ? `<div class="table-wrap"><table class="ind-table"><thead><tr><th>Fecha</th><th>Tienda</th><th>Promotora</th><th>Marca</th><th class="num">SKUs</th><th></th></tr></thead><tbody>
-          ${m.visitas.map((v) => `<tr><td class="nowrap">${esc(fd(v.fecha))}</td><td>${esc(v.tienda)}</td><td>${esc(v.promotora)}</td><td><strong>${esc(v.marca)}</strong></td><td class="num">${v.n}</td>
-            <td><button class="icon-btn" data-vdel="${esc(v.id)}" title="Eliminar este relevamiento"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`).join("")}
-        </tbody></table></div>` : '<div class="empty">Sin relevamientos esta semana.</div>'}
-        ${m.tiendasCfg.filter((t) => !m.tiendasRel.has(t)).length ? `<p class="small muted" style="margin:10px 0 0"><b>Sin relevar:</b> ${esc(m.tiendasCfg.filter((t) => !m.tiendasRel.has(t)).map((t) => t.replace(/^Sodimac\s+/i, "")).join(" · "))}</p>` : ""}
-      </div>`;
+      ${histHtml(m)}
+      ${evolHtml(m)}
+      ${m.tiendasCfg.filter((t) => !m.tiendasRel.has(t)).length ? `<p class="small muted" style="margin:-6px 4px 16px"><b>Sin relevar el ${esc(weekLabel(st.wk).replace(/^Fin de semana /, "fin de semana "))}:</b> ${esc(m.tiendasCfg.filter((t) => !m.tiendasRel.has(t)).map((t) => t.replace(/^Sodimac\s+/i, "")).join(" · "))}</p>` : ""}`;
 
     const $ = (id) => el.querySelector("#" + id);
     $("pWk").onchange = (e) => { st.wk = e.target.value; render(); };
     $("pTienda").onchange = (e) => { st.tienda = e.target.value; render(); };
     $("pReload").onclick = () => reload();
     el.querySelectorAll("[data-cell]").forEach((x) => (x.onclick = (e) => { e.preventDefault(); const [ri, ci] = x.dataset.cell.split("|").map(Number); openCell(m.matrix[ri], m.matrix[ri].cells[ci]); }));
-    el.querySelectorAll("[data-vdel]").forEach((b) => (b.onclick = async () => {
-      const v = m.visitas.find((x) => x.id === b.dataset.vdel);
-      if (!v || !confirm(`¿Eliminar el relevamiento de ${v.marca} en ${v.tienda} (${fd(v.fecha)}, ${v.n} SKUs)?`)) return;
-      try { await API.deleteVisita(v.id); await reload(); } catch (e) { alert("No se pudo eliminar: " + e.message); }
-    }));
+    const hs = (id, k) => { const x = $(id); if (x) x.onchange = (e) => { hst[k] = e.target.value; hst.max = 40; render(); }; };
+    hs("hDesde", "desde"); hs("hHasta", "hasta"); hs("hTiendaH", "tienda"); hs("hMarca", "marca");
+    if ($("hMore")) $("hMore").onclick = () => { hst.max += 40; render(); };
+    el.querySelectorAll("[data-visit]").forEach((b) => (b.onclick = () => openVisit(b.dataset.visit)));
     $("pCsv").onclick = () => {
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const head = ["Fecha", "Semana (lunes)", "Tienda", "Promotora", "Marca", "SKU", "Disponible", "Precio regular", "Precio oferta", "Precio efectivo", "Promoción", "Comentario"];
@@ -169,10 +163,10 @@
           return `<tr class="${a ? "row-bad" : isHi ? "row-hi" : ""}"><td class="pm-t"><strong>${esc(x.tienda)}</strong></td><td data-l="Promotora">${esc(x.promotora)}</td><td class="nowrap" data-l="Fecha">${esc(fd(x.fecha))}</td>
             <td class="num" data-l="Regular">${money(x.precio_regular)}</td><td class="num" data-l="Oferta">${money(x.precio_promo)}</td><td class="num pm-ef" data-l="Efectivo"><b>${x.disponible === false ? '<span class="pill neu">No hay</span>' : money(v)}</b></td>
             <td class="pm-obs">${a ? `<span class="pill bad">⚠ atípico: ${v > refOf[x.id] ? Math.round(v / refOf[x.id]) + "× la" : "muy por debajo de la"} mediana (${money(refOf[x.id])})</span>` : isHi ? '<span class="pill warn">▲ precio más alto</span>' : isLo ? '<span class="pill ok">▼ precio más bajo</span>' : ""}${x.promo_tipo ? ` <span class="pill warn">${esc(x.promo_tipo)}</span>` : ""}${x.comentario ? `<div class="small muted">${esc(x.comentario)}</div>` : ""}${x.editado_at ? `<div class="small" style="color:var(--purple)">✎ Corregido por ${esc(x.editado_por || "admin")} el ${esc(fd(String(x.editado_at).slice(0, 10)))}${x.valor_original ? ` · antes: ${x.valor_original.disponible === false ? "No hay" : money(x.valor_original.precio_promo ?? x.valor_original.precio_regular)}` : ""}</div>` : ""}</td>
-            <td class="pm-del nowrap"><button class="icon-btn" data-pedit="${esc(x.id)}" title="Corregir este precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn" data-pdel="${esc(x.id)}" title="Eliminar este precio (si fue un error)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></td></tr>`; }).join("")}
+            <td class="pm-del nowrap"><button class="icon-btn" data-pedit="${esc(x.id)}" title="Corregir este precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td></tr>`; }).join("")}
       </tbody></table></div>
       <div id="pmEdit"></div>
-      <p class="small muted" style="margin:10px 0 0">Efectivo = oferta si la hay; si no, regular. Un precio atípico (más de 3 veces o menos de un tercio de la mediana, cuando hay 3 o más tiendas) se excluye del promedio. Si es un error, corrígelo con el lápiz (queda registrado quién lo cambió y el valor original) o elimínalo.</p>
+      <p class="small muted" style="margin:10px 0 0">Efectivo = oferta si la hay; si no, regular. Un precio atípico (más de 3 veces o menos de un tercio de la mediana, cuando hay 3 o más tiendas) se excluye del promedio. Si es un error, corrígelo con el lápiz: queda registrado quién lo cambió y el valor original. Los relevamientos no se eliminan, para conservar el historial.</p>
     </div>`;
     box.querySelectorAll("[data-pedit]").forEach((b) => (b.onclick = () => {
       const x = list.find((y) => y.id === b.dataset.pedit); if (!x) return;
@@ -200,12 +194,71 @@
         catch (e) { g("peMsg").textContent = "No se pudo guardar: " + e.message; g("peSave").disabled = false; }
       };
     }));
-    box.querySelectorAll("[data-pdel]").forEach((b) => (b.onclick = async () => {
-      const x = list.find((y) => y.id === b.dataset.pdel);
-      if (!x || !confirm(`¿Eliminar el precio ${money(eff(x))} de ${x.marcaN} ${x.sku} en ${x.tienda} (${x.promotora}, ${fd(x.fecha)})?`)) return;
-      try { await API.deletePrecio(x.id); box.classList.add("hidden"); await reload(); } catch (e) { alert("No se pudo eliminar: " + e.message); }
-    }));
     box.classList.remove("hidden");
+  }
+
+  // ---------- Historial de relevamientos (todas las semanas; nada se elimina) ----------
+  const hst = { desde: "", hasta: "", tienda: "", marca: "", max: 40 };
+  const fdl = (k) => { const t = D(k).toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const hora = (iso) => (iso ? new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Lima" }) : "");
+  function visitsAll() {
+    const g = {};
+    rows.forEach((r) => {
+      const v = g[r.visita_id] = g[r.visita_id] || { id: r.visita_id, fecha: String(r.fecha).slice(0, 10), tienda: r.tienda, promotora: r.promotora, marca: norm(r.marca), n: 0, na: 0, promos: 0, edit: 0, t: r.created_at, rows: [] };
+      v.n++; v.rows.push(r); if (r.disponible === false) v.na++; if (r.precio_promo != null || r.promo_tipo) v.promos++; if (r.editado_at) v.edit++;
+      if (String(r.created_at) < String(v.t)) v.t = r.created_at;
+    });
+    return Object.values(g).sort((a, b) => b.fecha.localeCompare(a.fecha) || String(b.t).localeCompare(String(a.t)));
+  }
+  function histHtml() {
+    const V = visitsAll();
+    const tiendas = [...new Set(V.map((v) => v.tienda))].sort((a, b) => a.localeCompare(b, "es")), marcasH = [...new Set(V.map((v) => v.marca))].sort();
+    const F = V.filter((v) => (!hst.desde || v.fecha >= hst.desde) && (!hst.hasta || v.fecha <= hst.hasta) && (!hst.tienda || v.tienda === hst.tienda) && (!hst.marca || v.marca === hst.marca));
+    const shown = F.slice(0, hst.max), days = [...new Set(shown.map((v) => v.fecha))];
+    const fechas = [...new Set(F.map((v) => v.fecha))];
+    return `<div class="card panel" id="histPrecios">
+      <div class="panel-head"><h3>Historial de relevamientos</h3><span class="muted">${F.length} relevamiento${F.length === 1 ? "" : "s"} · ${fechas.length} fecha${fechas.length === 1 ? "" : "s"} · ${new Set(F.map((v) => v.tienda)).size} tienda${new Set(F.map((v) => v.tienda)).size === 1 ? "" : "s"} · se conservan todos</span></div>
+      <div class="ind-toolbar" style="margin-bottom:12px">
+        <div class="field"><label for="hDesde">Desde</label><input id="hDesde" type="date" value="${esc(hst.desde)}" /></div>
+        <div class="field"><label for="hHasta">Hasta</label><input id="hHasta" type="date" value="${esc(hst.hasta)}" /></div>
+        <div class="field"><label for="hTiendaH">Tienda</label><select id="hTiendaH"><option value="">Todas</option>${tiendas.map((t) => `<option${t === hst.tienda ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+        <div class="field"><label for="hMarca">Marca</label><select id="hMarca"><option value="">Todas</option>${marcasH.map((t) => `<option${t === hst.marca ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+      </div>
+      ${F.length ? days.map((d) => { const a = shown.filter((v) => v.fecha === d); return `<div class="hday-p"><div class="hday-ph"><b>${esc(fdl(d))}</b><span>${a.length} relevamiento${a.length === 1 ? "" : "s"} · ${new Set(a.map((v) => v.tienda)).size} tienda${new Set(a.map((v) => v.tienda)).size === 1 ? "" : "s"}</span></div>
+        <div class="table-wrap"><table class="ind-table"><thead><tr><th>Hora</th><th>Tienda</th><th>Promotora</th><th>Marca</th><th class="num">SKUs</th><th class="num">No hay</th><th class="num">Con oferta</th><th></th></tr></thead><tbody>
+        ${a.map((v) => `<tr class="clk-row" data-visit="${esc(v.id)}"><td class="nowrap">${esc(hora(v.t))}</td><td><strong>${esc(v.tienda)}</strong></td><td>${esc(v.promotora)}</td><td>${esc(v.marca)}</td><td class="num">${v.n}</td><td class="num">${v.na || "—"}</td><td class="num">${v.promos || "—"}</td><td class="nowrap">${v.edit ? `<span class="pill" style="background:var(--purple-soft);color:var(--purple)">✎ ${v.edit} corregido${v.edit === 1 ? "" : "s"}</span> ` : ""}<span class="small" style="color:var(--purple);font-weight:700">Ver precios ›</span></td></tr>`).join("")}
+        </tbody></table></div></div>`; }).join("") : '<div class="empty">No hay relevamientos con estos filtros.</div>'}
+      ${F.length > shown.length ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" id="hMore">Ver ${Math.min(40, F.length - shown.length)} más (quedan ${F.length - shown.length})</button></div>` : ""}
+    </div>`;
+  }
+  function openVisit(id) {
+    const v = visitsAll().find((x) => x.id === id); if (!v) return;
+    let box = document.getElementById("pModal");
+    if (!box) { openCell({ sku: "", cells: [] }, { m: "", rows: [], atipicos: [] }); box = document.getElementById("pModal"); }
+    const list = v.rows.slice().sort((a, b) => String(a.sku).localeCompare(String(b.sku), "es", { numeric: true }));
+    box.innerHTML = `<div class="pmodal-card" role="dialog" aria-modal="true" aria-label="Relevamiento">
+      <div class="pmodal-head"><div><div class="small muted">${esc(fdl(v.fecha))} · registrado ${esc(hora(v.t))}</div><h3>${esc(v.marca)} · ${esc(v.tienda)}</h3><div class="small muted">Promotora: ${esc(v.promotora)} · ${v.n} SKUs</div></div><button class="icon-btn" data-close title="Cerrar">✕</button></div>
+      <div class="table-wrap"><table class="ind-table pm-table"><thead><tr><th>SKU</th><th class="num">Regular</th><th class="num">Oferta</th><th class="num">Efectivo</th><th>Promoción / comentario</th></tr></thead><tbody>
+      ${list.map((x) => `<tr><td class="pm-t"><strong>${esc(String(x.sku).replace(/^Pegamento\s+/i, ""))}</strong></td><td class="num" data-l="Regular">${money(x.precio_regular)}</td><td class="num" data-l="Oferta">${money(x.precio_promo)}</td><td class="num" data-l="Efectivo"><b>${x.disponible === false ? '<span class="pill neu">No hay</span>' : money(eff(x))}</b></td>
+        <td class="pm-obs">${x.promo_tipo ? `<span class="pill warn">${esc(x.promo_tipo)}</span> ` : ""}${x.comentario ? `<span class="small muted">${esc(x.comentario)}</span>` : ""}${x.editado_at ? `<div class="small" style="color:var(--purple)">✎ Corregido por ${esc(x.editado_por || "admin")} el ${esc(fd(String(x.editado_at).slice(0, 10)))}${x.valor_original ? ` · antes: ${x.valor_original.disponible === false ? "No hay" : money(x.valor_original.precio_promo ?? x.valor_original.precio_regular)}` : ""}</div>` : ""}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="small muted" style="margin:10px 0 0">Para corregir un precio, ábrelo desde el comparativo de su semana (clic en el precio → lápiz ✎).</p></div>`;
+    box.classList.remove("hidden");
+  }
+  // Evolución semanal del precio efectivo promedio por SKU (últimos 8 fines de semana)
+  function evolHtml(m) {
+    const R = rows.map((r) => ({ ...r, marcaN: norm(r.marca), wk: weekOf(r.fecha) }));
+    const wks = [...new Set(R.map((r) => r.wk))].sort().slice(-8);
+    if (wks.length < 1) return "";
+    const marcasE = [...new Set(R.map((r) => r.marcaN))].sort((a, b) => (a === "Afix" ? -1 : b === "Afix" ? 1 : a.localeCompare(b, "es")));
+    const skus = [...new Set([...(PC.SKUS || []), ...R.map((r) => r.sku)])].filter((k) => R.some((r) => r.sku === k && r.disponible !== false));
+    const avgOf = (wk, sku, mk) => { const xs = R.filter((r) => r.wk === wk && r.sku === sku && r.marcaN === mk && r.disponible !== false && (!st.tienda || r.tienda === st.tienda)).map(eff).filter((v) => v != null); if (!xs.length) return null; const md = median(xs); const ok = xs.length >= 3 ? xs.filter((v) => v / md <= 3 && v / md >= 1 / 3) : xs; return ok.reduce((a, b) => a + b, 0) / ok.length; };
+    const lbl = (wk) => { const s = D(wk), sun = new Date(s); sun.setDate(s.getDate() + 6); return `${sun.getDate()} ${MES[sun.getMonth()]}`; };
+    return `<div class="card panel"><div class="panel-head"><h3>Evolución de precios por fin de semana</h3><span class="muted">Precio efectivo promedio${st.tienda ? " en " + esc(st.tienda) : " entre tiendas"} · sin precios atípicos · últimos ${wks.length} fines de semana</span></div>
+      <div class="table-wrap"><table class="ind-table"><thead><tr><th>SKU</th><th>Marca</th>${wks.map((w) => `<th class="num">${esc(lbl(w))}</th>`).join("")}<th class="num">Cambio</th></tr></thead><tbody>
+      ${skus.flatMap((sku) => marcasE.map((mk, i) => { const vals = wks.map((w) => avgOf(w, sku, mk)); if (vals.every((v) => v == null)) return ""; const pts = vals.filter((v) => v != null); const ch = pts.length > 1 ? pts[pts.length - 1] / pts[0] - 1 : null;
+        return `<tr${i === 0 ? ' class="sku-first"' : ""}><td><strong>${esc(sku.replace(/^Pegamento\s+/i, ""))}</strong></td><td>${esc(mk)}</td>${vals.map((v, k) => { const p = k > 0 ? vals[k - 1] : null; const d = v != null && p != null ? v / p - 1 : null; return `<td class="num">${v == null ? '<span class="muted">—</span>' : money(v)}${d != null && Math.abs(d) >= 0.01 ? `<div class="small ${d > 0 ? "up-r" : "down-g"}">${d > 0 ? "▲" : "▼"}${Math.abs(Math.round(d * 100))}%</div>` : ""}</td>`; }).join("")}<td class="num">${ch == null ? '<span class="muted">—</span>' : `<span class="pill ${ch > 0.01 ? "bad" : ch < -0.01 ? "ok" : "neu"}">${pct(ch)}</span>`}</td></tr>`; })).join("")}
+      </tbody></table></div></div>`;
   }
 
   function reopen(sku, marca) {

@@ -478,3 +478,8 @@ a.lnk { color: inherit; text-decoration: underline dotted; }
 .pm-form-h { font-size: 13.5px; margin-bottom: 8px; }
 .pm-form .field label input[type=checkbox] { accent-color: var(--purple); margin-right: 6px; }
 @media (max-width: 640px) { .pm-form .ind-toolbar .btn { flex: 1; } }
+.hday-p { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+.hday-ph { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; font-size: 13.5px; }
+.hday-ph span { color: var(--muted); font-size: 12.5px; }
+.ind-table tr.clk-row { cursor: pointer; }
+.ind-table tr.clk-row:hover td { background: var(--purple-soft); }
