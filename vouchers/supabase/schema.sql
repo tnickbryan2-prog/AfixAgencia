@@ -36,7 +36,7 @@ create table if not exists public.vouchers (
   nombre      text not null check (char_length(nombre) between 2 and 60),
   apellido    text not null check (char_length(apellido) between 2 and 60),
   telefono    text not null check (telefono ~ '^9[0-9]{8}$'),
-  foto_path   text not null check (char_length(foto_path) between 5 and 200),
+  foto_path   text check (char_length(foto_path) between 5 and 200),  -- opcional: null = registrado sin foto
   dispositivo text,
   acepta_datos boolean not null default false
 );
@@ -92,3 +92,6 @@ create policy "admin borra fotos"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'vouchers' and public.is_admin());
+
+-- Migración 2026-11-24: la foto del voucher pasa a ser opcional
+alter table public.vouchers alter column foto_path drop not null;

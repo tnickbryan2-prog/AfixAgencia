@@ -73,29 +73,33 @@
     isDemo: !!CFG.DEMO,
     compressImage,
 
+    // La foto es opcional: sin archivo se registra con foto_path = null
     async submitVoucher(data, file) {
-      const blob = await compressImage(file);
       if (CFG.DEMO) {
-        const small = await compressImage(file, 700, 0.6);
+        const small = file ? await compressImage(file, 700, 0.6) : null;
         const rows = demo.read();
         rows.unshift({
           id: uuid(),
           created_at: new Date().toISOString(),
           ...data,
-          foto_path: await blobToDataURL(small),
+          foto_path: small ? await blobToDataURL(small) : null,
         });
         demo.write(rows);
         await new Promise((r) => setTimeout(r, 600));
         return;
       }
       const c = client();
-      const now = new Date();
-      const path = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${uuid()}.jpg`;
-      const up = await c.storage.from(BUCKET).upload(path, blob, {
-        contentType: "image/jpeg",
-        upsert: false,
-      });
-      if (up.error) throw new Error("No se pudo subir la foto: " + up.error.message);
+      let path = null;
+      if (file) {
+        const blob = await compressImage(file);
+        const now = new Date();
+        path = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${uuid()}.jpg`;
+        const up = await c.storage.from(BUCKET).upload(path, blob, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+        if (up.error) throw new Error("No se pudo subir la foto: " + up.error.message);
+      }
       const ins = await c.from("vouchers").insert({
         ...data,
         foto_path: path,
@@ -207,6 +211,7 @@
     // Devuelve { path: urlFirmada } para mostrar fotos privadas
     async photoUrls(paths) {
       const out = {};
+      paths = (paths || []).filter(Boolean);
       if (!paths.length) return out;
       if (CFG.DEMO) { paths.forEach((p) => (out[p] = p)); return out; }
       const c = client();
@@ -312,7 +317,7 @@
       const c = client();
       const { error } = await c.from("vouchers").delete().eq("id", row.id);
       if (error) throw new Error(error.message);
-      await c.storage.from(BUCKET).remove([row.foto_path]);
+      if (row.foto_path) await c.storage.from(BUCKET).remove([row.foto_path]);
     },
   };
 
