@@ -95,3 +95,22 @@ create policy "admin borra fotos"
 
 -- Migración 2026-11-24: la foto del voucher pasa a ser opcional
 alter table public.vouchers alter column foto_path drop not null;
+
+-- Migración 2026-11-25: rol "lector" (solo lectura de Registros, Indicadores y Stock premios)
+create table if not exists public.panel_lectores (email text primary key, creado_at timestamptz not null default now());
+alter table public.panel_lectores enable row level security;
+create or replace function private.is_lector() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.panel_lectores where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+$$;
+create or replace function public.mi_rol() returns text language sql stable security definer set search_path = public as $$
+  select case when private.is_admin() then 'admin' when private.is_lector() then 'lector' else null end;
+$$;
+revoke all on function public.mi_rol() from public, anon;
+grant execute on function public.mi_rol() to authenticated;
+create policy "lector lee vouchers" on public.vouchers for select to authenticated using (private.is_lector());
+create policy "lector lee giros" on public.ruleta_giros for select to authenticated using (private.is_lector());
+create policy "lector lee stock" on public.stock_movimientos for select to authenticated using (private.is_lector());
+create policy "lector lee config" on public.panel_config for select to authenticated using (private.is_lector());
+create policy "lector ve fotos" on storage.objects for select to authenticated using (bucket_id = 'vouchers' and private.is_lector());
+-- Para dar acceso de solo lectura: crear el usuario en Authentication y luego
+-- insert into public.panel_lectores (email) values ('correo@empresa.com');

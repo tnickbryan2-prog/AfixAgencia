@@ -179,6 +179,14 @@
       return data.session;
     },
 
+    // Rol del usuario conectado: "admin" (todo), "lector" (solo Registros, Indicadores y Stock) o null
+    async getRole() {
+      if (CFG.DEMO) { try { return sessionStorage.getItem("demo_role") || "admin"; } catch { return "admin"; } }
+      const { data, error } = await client().rpc("mi_rol");
+      if (error) return "admin";  // si la función no existe aún, se comporta como antes (RLS protege igual)
+      return data || null;
+    },
+
     async signIn(email, password) {
       if (CFG.DEMO) { sessionStorage.setItem("demo_admin", "1"); return; }
       const { error } = await client().auth.signInWithPassword({ email, password });

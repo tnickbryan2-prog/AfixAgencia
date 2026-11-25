@@ -14,6 +14,13 @@
   <link rel="stylesheet" href="styles.css?v=26" />
 </head>
 <body>
+  <style>
+    /* Rol "lector" (solo lectura): solo Registros, Indicadores y Stock premios, sin editar ni borrar */
+    .rol-lector #tabs .tab[data-tab="precios"], .rol-lector #tabs .tab[data-tab="tiendas"], .rol-lector #tabs .tab[data-tab="sos"],
+    .rol-lector #tab-precios, .rol-lector #tab-tiendas, .rol-lector #tab-sos,
+    .rol-lector [data-del], .rol-lector [data-sdel], .rol-lector #mCfgBtn, .rol-lector #mCfg, .rol-lector .stk-edit { display: none !important; }
+    .role-badge { font-size: 12px; font-weight: 700; color: #fff; background: rgba(255,255,255,.18); border-radius: 999px; padding: 6px 10px; white-space: nowrap; }
+  </style>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: datos de prueba guardados en este navegador. Cualquier contraseña funciona.</div>
 
   <header class="topbar">
@@ -32,6 +39,7 @@
         <button class="tab" data-tab="tiendas">Análisis tiendas</button>
         <button class="tab" data-tab="sos">📸 Share of Shelf</button>
       </nav>
+      <span id="roleBadge" class="role-badge hidden">Solo lectura</span>
       <button id="logoutBtn" class="btn btn-light hidden">Cerrar sesión</button>
     </div>
   </header>
@@ -130,9 +138,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="config.js?v=22"></script>
-  <script src="api.js?v=26"></script>
+  <script src="api.js?v=27"></script>
   <script src="metrics.js?v=18"></script>
-  <script src="stock.js?v=18"></script>
+  <script src="stock.js?v=19"></script>
   <script src="precios-admin.js?v=26"></script>
   <script src="ventas-tiendas.js?v=25"></script>
   <script>
@@ -163,7 +171,17 @@
         $("logoutBtn").classList.add("hidden");
         $("tabs").classList.add("hidden");
       }
-      function showApp() {
+      const LECTOR_TABS = ["registros", "indicadores", "stock"];
+      let role = "admin";
+      async function showApp() {
+        role = await API.getRole();
+        const lector = role === "lector";
+        document.body.classList.toggle("rol-lector", lector);
+        $("roleBadge").classList.toggle("hidden", !lector);
+        if (lector) {
+          const act = document.querySelector("#tabs .tab.active");
+          if (act && !LECTOR_TABS.includes(act.dataset.tab)) document.querySelector('#tabs .tab[data-tab="registros"]').click();
+        }
         $("loginView").classList.add("hidden");
         $("appView").classList.remove("hidden");
         $("logoutBtn").classList.remove("hidden");
@@ -184,7 +202,11 @@
           $("loginBtn").disabled = false;
         }
       });
-      $("logoutBtn").addEventListener("click", async () => { await API.signOut(); showLogin(); });
+      $("logoutBtn").addEventListener("click", async () => {
+        await API.signOut();
+        role = "admin"; document.body.classList.remove("rol-lector"); $("roleBadge").classList.add("hidden");
+        showLogin();
+      });
 
       // ---------- Datos ----------
       async function load() {
@@ -357,6 +379,7 @@
       TiendasAdmin.mount($("tiendas-main"));
       VentasUpload.mount($("tiendas-ventas"));
       document.querySelectorAll("#tabs .tab").forEach((b) => b.addEventListener("click", () => {
+        if (role === "lector" && !LECTOR_TABS.includes(b.dataset.tab)) return;
         document.querySelectorAll("#tabs .tab").forEach((x) => x.classList.toggle("active", x === b));
         $("tab-registros").classList.toggle("hidden", b.dataset.tab !== "registros");
         $("tab-indicadores").classList.toggle("hidden", b.dataset.tab !== "indicadores");

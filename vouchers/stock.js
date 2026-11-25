@@ -99,7 +99,7 @@
       ${m.neg.length ? `<div class="alerts"><div class="alert-item bad"><b>${m.neg.length} promotora${m.neg.length > 1 ? "s" : ""} con saldo negativo (${m.neg.length > 1 ? "entregaron" : "entregó"} más de lo que ${m.neg.length > 1 ? "recibieron" : "recibió"})</b><span>${esc(m.neg.join(" · "))}. Falta registrar una entrega o hay un error en un voucher.</span></div></div>` : ""}
       ${m.low.length ? `<div class="alerts"><div class="alert-item warn"><b>Stock bajo (${MIN} o menos)</b><span>${esc(m.low.join(" · "))}</span></div></div>` : ""}
 
-      <div class="card panel">
+      <div class="card panel stk-edit">
         <div class="panel-head"><h3>Registrar movimiento de stock</h3><span class="muted">Anota cada entrega de premios a una promotora (o lo que te devuelve)</span></div>
         <div class="stock-form">
           <div class="field"><label for="sFecha">Fecha</label><input id="sFecha" type="date" value="${esc(draft.fecha)}" /></div>
