@@ -92,8 +92,19 @@ button, input, select { font: inherit; color: inherit; }
 .field.invalid .photo-drop { border-color: var(--coral); background: var(--coral-soft); }
 .photo-preview { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
 .photo-preview img { display: block; width: 100%; max-height: 340px; object-fit: contain; background: #111; }
+.field .photo-gal {
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0 0;
+  min-height: 48px; padding: 10px 14px; border: 1.5px solid #d6c7e0; border-radius: 12px;
+  background: #fff; color: var(--purple); font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.photo-gal:hover { background: var(--purple-soft); }
+.photo-gal svg { width: 22px; height: 22px; flex: none; }
+.photo-actions {
+  position: absolute; right: 10px; bottom: 10px; left: 10px;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px;
+}
 .photo-preview button {
-  position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.65); color: #fff;
+  background: rgba(0,0,0,.65); color: #fff;
   border: 0; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 
