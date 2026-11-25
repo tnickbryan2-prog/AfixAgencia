@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
   <link rel="manifest" href="site.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=19" />
+  <link rel="stylesheet" href="styles.css?v=20" />
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demo: los registros se guardan solo en este navegador.</div>
@@ -33,24 +33,25 @@
       <form id="form" novalidate>
         <p class="section-label">1 · Foto del voucher <span class="muted">(opcional)</span></p>
         <div class="field" id="f-foto">
-          <input id="foto" type="file" accept="image/*" capture="environment" class="hidden" />
-          <input id="fotoGal" type="file" accept="image/*" class="hidden" />
+          <!-- iOS/Android: el input transparente va encima de cada botón para que el toque lo abra directamente -->
           <div id="photoDrop">
-          <label for="foto" class="photo-drop">
+          <div class="photo-drop pick">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.6l1.4-2h7l1.4 2h1.6A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.6"/></svg>
             <strong>Tomar foto del voucher (opcional)</strong>
             <small>Puedes registrar sin foto. Si la tomas, que se vea completo y legible. Si muestra DNI, RUC o números de tarjeta, cúbrelos antes de la foto.</small>
-          </label>
-          <label for="fotoGal" class="photo-gal">
+            <input id="foto" class="pick-input" type="file" accept="image/*" capture="environment" aria-label="Tomar foto del voucher" />
+          </div>
+          <div class="photo-gal pick">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
             Elegir foto de la galería
-          </label>
+            <input id="fotoGal" class="pick-input" type="file" accept="image/*" aria-label="Elegir foto de la galería" />
+          </div>
           </div>
           <div id="photoPreview" class="photo-preview hidden">
             <img id="previewImg" alt="Vista previa del voucher" />
             <div class="photo-actions">
-              <button type="button" id="retake">Volver a tomar</button>
-              <button type="button" id="pickGal">Galería</button>
+              <span class="pbtn pick">Volver a tomar<input id="foto2" class="pick-input" type="file" accept="image/*" capture="environment" aria-label="Volver a tomar la foto" /></span>
+              <span class="pbtn pick">Galería<input id="fotoGal2" class="pick-input" type="file" accept="image/*" aria-label="Elegir otra foto de la galería" /></span>
               <button type="button" id="removePhoto">Quitar</button>
             </div>
           </div>
@@ -290,18 +291,18 @@
         $("photoPreview").classList.remove("hidden");
         $("f-foto").classList.remove("invalid");
       }
+      const pickInputs = () => document.querySelectorAll(".pick-input");
       function clearPhoto() {
         photoFile = null;
-        $("foto").value = "";
-        $("fotoGal").value = "";
+        pickInputs().forEach((i) => { i.value = ""; });
         $("previewImg").removeAttribute("src");
         $("photoPreview").classList.add("hidden");
         $("photoDrop").classList.remove("hidden");
       }
-      $("foto").addEventListener("change", onPhoto);
-      $("fotoGal").addEventListener("change", onPhoto);
-      $("retake").addEventListener("click", () => { $("foto").value = ""; $("foto").click(); });
-      $("pickGal").addEventListener("click", () => { $("fotoGal").value = ""; $("fotoGal").click(); });
+      pickInputs().forEach((i) => {
+        i.addEventListener("click", () => { i.value = ""; });  // permite elegir la misma foto otra vez
+        i.addEventListener("change", onPhoto);
+      });
       $("removePhoto").addEventListener("click", clearPhoto);
 
       // Teléfono: solo dígitos, formato 987 654 321
