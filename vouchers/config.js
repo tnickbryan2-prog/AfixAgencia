@@ -65,7 +65,8 @@ window.APP_CONFIG = {
   STOCK_MINIMO: 5,
 
   // Promotoras del proyecto (rotan entre tiendas: en el formulario se eligen libremente)
-  PROMOTORAS: ["Andrea Apaza", "Cecilia Chipana", "Elizabeth Pizarro", "Rosa Rios", "Sheyla Rojas"],
+  PROMOTORAS: ["Andrea Apaza", "Cecilia Chipana", "Elizabeth Pizarro", "Elsa Flores", "Sheyla Borjas"],
+  // Elsa Flores reemplaza a Rosa Rios desde el 25/11/2026 (los registros de Rosa se conservan en el histórico)
 
   // Tiendas del proyecto y promotora de referencia (solo informativo para reportes;
   // en el formulario tienda y promotora se eligen por separado porque rotan).
@@ -74,11 +75,11 @@ window.APP_CONFIG = {
     { tienda: "Sodimac Angamos Primavera (Surquillo)",        promotoras: ["Andrea Apaza"] },
     { tienda: "Sodimac Surquillo (Surquillo)",                promotoras: ["Elizabeth Pizarro"] },
     { tienda: "Sodimac Chacarilla (Santiago de Surco)",       promotoras: ["Elizabeth Pizarro"] },
-    { tienda: "Sodimac Atocongo (SJM Open Plaza)",            promotoras: ["Sheyla Rojas"] },
-    { tienda: "Sodimac Villa El Salvador",                    promotoras: ["Sheyla Rojas"] },
-    { tienda: "Sodimac Ate (La Molina)",                      promotoras: ["Sheyla Rojas"] },
-    { tienda: "Sodimac Javier Prado (La Victoria)",           promotoras: ["Rosa Rios"] },
-    { tienda: "Sodimac San Miguel",                           promotoras: ["Rosa Rios"] },
+    { tienda: "Sodimac Atocongo (SJM Open Plaza)",            promotoras: ["Sheyla Borjas"] },
+    { tienda: "Sodimac Villa El Salvador",                    promotoras: ["Sheyla Borjas"] },
+    { tienda: "Sodimac Ate (La Molina)",                      promotoras: ["Sheyla Borjas"] },
+    { tienda: "Sodimac Javier Prado (La Victoria)",           promotoras: ["Elsa Flores"] },
+    { tienda: "Sodimac San Miguel",                           promotoras: ["Elsa Flores"] },
     { tienda: "Sodimac Canta Callao (Open Plaza)",            promotoras: ["Cecilia Chipana"] },
     { tienda: "Sodimac Cono Norte (Mega Plaza Independencia)", promotoras: ["Cecilia Chipana"] },
     { tienda: "Sodimac Naranjal (Los Olivos)",                promotoras: ["Cecilia Chipana"] },
