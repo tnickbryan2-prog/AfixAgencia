@@ -26,6 +26,8 @@ TIENDAS = {
     "Sodimac Canta Callao (Open Plaza)": ["Cecilia Chipana"],
     "Sodimac Cono Norte (Mega Plaza Independencia)": ["Cecilia Chipana"],
     "Sodimac Naranjal (Los Olivos)": ["Cecilia Chipana"],
+    "Sodimac Castilla (Piura)": ["Maryuri Miranda Merino"],
+    "Maestro 26 de Octubre (Piura)": ["Maryuri Miranda Merino"],
 }
 PREMIOS = ["Lapicero", "Adhesivo Gris 2 oz", "Adhesivo Dorado 2 oz", "Adhesivo Azul 2 oz"]
 STOCK_MIN = 5

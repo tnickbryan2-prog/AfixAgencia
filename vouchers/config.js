@@ -65,7 +65,7 @@ window.APP_CONFIG = {
   STOCK_MINIMO: 5,
 
   // Promotoras del proyecto (rotan entre tiendas: en el formulario se eligen libremente)
-  PROMOTORAS: ["Andrea Apaza", "Cecilia Chipana", "Elizabeth Pizarro", "Elsa Flores", "Sheyla Borjas"],
+  PROMOTORAS: ["Andrea Apaza", "Cecilia Chipana", "Elizabeth Pizarro", "Elsa Flores", "Maryuri Miranda Merino", "Sheyla Borjas"],
   // Elsa Flores reemplaza a Rosa Rios desde el 25/11/2026 (los registros de Rosa se conservan en el histórico)
 
   // Tiendas del proyecto y promotora de referencia (solo informativo para reportes;
@@ -83,6 +83,8 @@ window.APP_CONFIG = {
     { tienda: "Sodimac Canta Callao (Open Plaza)",            promotoras: ["Cecilia Chipana"] },
     { tienda: "Sodimac Cono Norte (Mega Plaza Independencia)", promotoras: ["Cecilia Chipana"] },
     { tienda: "Sodimac Naranjal (Los Olivos)",                promotoras: ["Cecilia Chipana"] },
+    { tienda: "Sodimac Castilla (Piura)",                     promotoras: ["Maryuri Miranda Merino"] },
+    { tienda: "Maestro 26 de Octubre (Piura)",                promotoras: ["Maryuri Miranda Merino"] },
   ],
 };
 
