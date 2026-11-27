@@ -500,3 +500,39 @@ a.lnk { color: inherit; text-decoration: underline dotted; }
 .hday-ph span { color: var(--muted); font-size: 12.5px; }
 .ind-table tr.clk-row { cursor: pointer; }
 .ind-table tr.clk-row:hover td { background: var(--purple-soft); }
+
+/* Indicadores · vistas Equipo / Por tienda / Ruta sugerida */
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--purple-soft); border-radius: 999px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; color: var(--purple); font: inherit; font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+.seg button.on { background: var(--purple); color: #fff; }
+.store-pick { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+.store-pick .field { margin: 0; min-width: 260px; flex: 1 1 260px; max-width: 420px; }
+.store-asig { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; }
+.store-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+.store-kpis > div { background: #fbfafc; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.store-kpis .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.store-kpis b { font-size: 20px; }
+.store-kpis small { font-size: 11.5px; color: var(--muted); }
+.t-bad { color: var(--coral); } .t-warn { color: #9a6a00; }
+.promo-chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--purple-soft); color: var(--purple); margin: 1px 0; white-space: nowrap; }
+.promo-chip.otra { background: #fdf0e3; color: #b25e00; }
+.route-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.route-card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+.route-head { display: flex; flex-direction: column; gap: 2px; }
+.route-head b { font-size: 16px; }
+.route-store { display: flex; flex-direction: column; gap: 5px; }
+.rs-top { display: flex; align-items: center; gap: 8px; }
+.rs-top b { flex: 1; font-size: 14px; }
+.rs-days { font-size: 12px; font-weight: 700; color: var(--purple); white-space: nowrap; }
+.route-store .prog div.ok { background: var(--ok); } .route-store .prog div.warn { background: #e0a526; } .route-store .prog div.bad { background: var(--coral); }
+.route-week { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.rw-day { border-radius: 10px; padding: 7px 8px; background: #f6f3f8; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.rw-day span { color: var(--muted); font-weight: 700; }
+.rw-day b { font-size: 12.5px; line-height: 1.2; }
+.rw-day.p-bad { background: var(--coral-soft); } .rw-day.p-warn { background: #fdf3dc; } .rw-day.p-ok { background: #e5f5ec; }
+@media (max-width: 860px) { .store-kpis { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .route-grid { grid-template-columns: 1fr; } .seg button { padding: 7px 10px; font-size: 12.5px; } .store-pick .field { min-width: 0; } }
+@media (max-width: 520px) {
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; border-radius: 12px; }
+  .seg button { border-radius: 9px; padding: 8px 4px; font-size: 12px; }
+}

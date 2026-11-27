@@ -37,8 +37,9 @@
   const TIENDAS = (CFG.TIENDAS || []).map((t) => (typeof t === "string" ? { tienda: t, promotoras: [] } : t));
 
   let spins = [];
+  const ss = (k) => { try { return sessionStorage.getItem(k) || ""; } catch { return ""; } };
   let el = null, rows = [], cfg = { meta_promotora_mes: 0, dias_activacion: [1, 2, 3, 4, 5, 6, 0] };
-  let state = { ym: todayKey().slice(0, 7), day: todayKey(), showCfg: false, cfgLoaded: false };
+  let state = { ym: todayKey().slice(0, 7), day: todayKey(), showCfg: false, cfgLoaded: false, view: ["equipo", "tienda", "ruta"].includes(ss("m_view")) ? ss("m_view") : "equipo", tienda: ss("m_tienda") };
 
   // ---------- Cálculos ----------
   function compute() {
@@ -207,7 +208,7 @@
 
     const nPromos = promos.length || 1;
     return {
-      today, days, actDays, elapsedAct, remainingAfterToday, isCurrent, total, prevSame, avg, proj, unique, dupPhones,
+      R, cfgDias: cfg.dias_activacion, today, days, actDays, elapsedAct, remainingAfterToday, isCurrent, total, prevSame, avg, proj, unique, dupPhones,
       perDay, best, dayRows, dayHours, promos, tiendas, ruleta, ventas, premios, premioNames, premioMatrix, sinPremio, hours, dowTot, dowCnt, alerts, meta,
       metaEquipo: meta * nPromos,
       metaDiariaEquipo: meta && actDays.length ? (meta * nPromos) / actDays.length : 0,
@@ -217,10 +218,10 @@
   }
 
   // ---------- Gráficos (SVG) ----------
-  function dailyChart(m) {
+  function dailyChart(m, perDay = m.perDay, metaDia = m.metaDiariaEquipo, metaLbl = "Meta diaria equipo") {
     const W = 900, H = 220, P = { l: 34, r: 10, t: 14, b: 34 };
-    const vals = m.days.map((k) => m.perDay[k]);
-    const max = Math.max(1, ...vals, Math.ceil(m.metaDiariaEquipo));
+    const vals = m.days.map((k) => perDay[k]);
+    const max = Math.max(1, ...vals, Math.ceil(metaDia || 0));
     const step = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500].find((st) => max / st <= 5) || 1000;
     const ticks = Math.ceil(max / step);
     const niceMax = ticks * step;
@@ -232,7 +233,7 @@
       g += `<line x1="${P.l}" x2="${W - P.r}" y1="${yy}" y2="${yy}" class="grid"/><text x="${P.l - 6}" y="${yy + 4}" class="axis" text-anchor="end">${Math.round(v)}</text>`;
     }
     m.days.forEach((k, i) => {
-      const v = m.perDay[k], x = P.l + i * bw;
+      const v = perDay[k], x = P.l + i * bw;
       const act = m.actDays.includes(k);
       const cls = k === m.today ? "bar today" : k === state.day ? "bar sel" : k > m.today ? "bar future" : act ? "bar" : "bar off";
       if (!act) g += `<rect x="${x}" y="${P.t}" width="${bw}" height="${H - P.t - P.b}" class="offday"/>`;
@@ -242,9 +243,9 @@
       if (d === 1 || d % 2 === 1 || bw > 26) g += `<text x="${x + bw / 2}" y="${H - P.b + 15}" class="axis${dowOf(k) === 0 ? " sun" : ""}" text-anchor="middle">${d}</text>`;
       g += `<rect x="${x}" y="${P.t}" width="${bw}" height="${H - P.t - P.b}" fill="transparent" data-day="${k}" style="cursor:pointer"><title>${dLabel(k)}: ${v} — clic para ver el día</title></rect>`;
     });
-    if (m.metaDiariaEquipo > 0) {
-      const yy = y(m.metaDiariaEquipo);
-      g += `<line x1="${P.l}" x2="${W - P.r}" y1="${yy}" y2="${yy}" class="goal"/><text x="${W - P.r}" y="${yy - 5}" class="goal-lbl" text-anchor="end">Meta diaria equipo: ${fmt1(m.metaDiariaEquipo)}</text>`;
+    if (metaDia > 0) {
+      const yy = y(metaDia);
+      g += `<line x1="${P.l}" x2="${W - P.r}" y1="${yy}" y2="${yy}" class="goal"/><text x="${W - P.r}" y="${yy - 5}" class="goal-lbl" text-anchor="end">${metaLbl}: ${fmt1(metaDia)}</text>`;
     }
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(0)}" y2="${y(0)}" class="base"/>`;
     return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Vouchers por día">${g}</svg>`;
@@ -264,6 +265,203 @@
     });
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${H - P.b}" y2="${H - P.b}" class="base"/>`;
     return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img">${g}</svg>`;
+  }
+
+
+  // ---------- Avance diario por tienda ----------
+  const short = (t) => String(t).replace(/^Sodimac\s+/i, "");
+  const asignadas = (t) => (TIENDAS.find((x) => x.tienda === t) || {}).promotoras || [];
+
+  function storeData(m, tienda) {
+    const rowsT = m.R.filter((r) => r.tienda === tienda && r._d.startsWith(state.ym));
+    const perDay = {};
+    m.days.forEach((k) => (perDay[k] = 0));
+    rowsT.forEach((r) => { if (perDay[r._d] !== undefined) perDay[r._d]++; });
+    const byDay = {};
+    rowsT.forEach((r) => {
+      const d = (byDay[r._d] = byDay[r._d] || { n: 0, promos: {}, times: [] });
+      d.n++; d.promos[r.promotora] = (d.promos[r.promotora] || 0) + 1; d.times.push(r.created_at);
+    });
+    const asig = asignadas(tienda);
+    const meta = m.meta;
+    let metaDia = 0;
+    if (meta && asig.length && m.actDays.length) {
+      const nT = TIENDAS.filter((x) => (x.promotoras || []).includes(asig[0])).length || 1;
+      metaDia = meta / nT / m.actDays.length;
+    }
+    let best = null;
+    m.days.forEach((k) => { if (perDay[k] > 0 && (!best || perDay[k] > perDay[best])) best = k; });
+    const visitDays = m.elapsedAct.filter((k) => perDay[k] > 0).length;
+    const quien = {};
+    rowsT.forEach((r) => (quien[r.promotora] = (quien[r.promotora] || 0) + 1));
+    // Días a listar: los de activación transcurridos y cualquier día con registros
+    const lista = m.days.filter((k) => byDay[k] || m.elapsedAct.includes(k)).sort().reverse();
+    return {
+      tienda, perDay, byDay, asig, metaDia, best, lista,
+      total: rowsT.length, visitDays,
+      avg: m.elapsedAct.length ? rowsT.length / m.elapsedAct.length : 0,
+      avgVisita: visitDays ? rowsT.length / visitDays : 0,
+      sinReg: m.elapsedAct.filter((k) => !perDay[k]).length,
+      quien: Object.entries(quien).sort((a, b) => b[1] - a[1]),
+    };
+  }
+
+  function storeView(m) {
+    const names = [...new Set([...TIENDAS.map((t) => t.tienda), ...m.R.filter((r) => r._d.startsWith(state.ym)).map((r) => r.tienda)])];
+    if (!names.includes(state.tienda)) state.tienda = names[0] || "";
+    const opts = names.map((t) => `<option value="${esc(t)}"${t === state.tienda ? " selected" : ""}>${esc(t)}</option>`).join("");
+    if (!state.tienda) return '<div class="empty" style="padding:18px">No hay tiendas configuradas.</div>';
+    const d = storeData(m, state.tienda);
+    const dayRow = (k) => {
+      const x = d.byDay[k];
+      const sel = k === state.day ? ' class="row-hi"' : "";
+      if (!x) return `<tr${sel}><td class="nowrap">${esc(dLabel(k))}</td><td class="num"><span class="muted">0</span></td><td><span class="pill muted">Sin registro</span></td><td class="muted">—</td></tr>`;
+      const ts = x.times.slice().sort();
+      return `<tr${sel}><td class="nowrap">${esc(dLabel(k))}</td><td class="num"><b>${x.n}</b></td>
+        <td>${Object.entries(x.promos).map(([p, n]) => `<span class="promo-chip${d.asig.length && !d.asig.includes(p) ? " otra" : ""}">${esc(p)}${Object.keys(x.promos).length > 1 ? ` · ${n}` : ""}</span>`).join(" ")}</td>
+        <td class="nowrap muted">${hourFmtHM(ts[0])}${ts.length > 1 ? " – " + hourFmtHM(ts[ts.length - 1]) : ""}</td></tr>`;
+    };
+    return `
+      <div class="store-pick">
+        <div class="field"><label for="mTienda">Tienda</label><select id="mTienda">${opts}</select></div>
+        <div class="store-asig"><span class="muted small">Promotora asignada</span><b>${d.asig.length ? esc(d.asig.join(", ")) : "Sin asignar"}</b></div>
+      </div>
+      <div class="store-kpis">
+        <div><span class="lbl">Vouchers del mes</span><b>${fmtN(d.total)}</b></div>
+        <div><span class="lbl">Promedio por día</span><b>${fmt1(d.avg)}</b><small>${fmt1(d.avgVisita)} en días con registro</small></div>
+        <div><span class="lbl">Días sin registro</span><b class="${d.sinReg >= 3 ? "t-bad" : d.sinReg ? "t-warn" : ""}">${d.sinReg}</b><small>de ${m.elapsedAct.length} de activación</small></div>
+        <div><span class="lbl">Mejor día</span><b>${d.best ? esc(dLabel(d.best)) : "—"}</b><small>${d.best ? d.perDay[d.best] + " vouchers" : "&nbsp;"}</small></div>
+      </div>
+      ${dailyChart(m, d.perDay, d.metaDia, "Meta diaria tienda")}
+      <div class="legend"><span><i class="sw today"></i>Hoy</span><span><i class="sw sel"></i>Día seleccionado</span><span><i class="sw off"></i>Día sin activación</span>${d.metaDia ? '<span><i class="sw goal"></i>Meta diaria de la tienda (meta de la promotora ÷ sus tiendas)</span>' : ""}</div>
+      ${d.quien.length ? `<p class="insight">Registraron en esta tienda este mes: ${d.quien.map(([p, n]) => `<b>${esc(p)}</b> (${n})`).join(" · ")}${d.asig.length && d.quien.some(([p]) => !d.asig.includes(p)) ? ' · <span class="promo-chip otra">en naranja</span> = promotora distinta a la asignada' : ""}</p>` : ""}
+      <div class="table-wrap" style="margin-top:12px"><table class="ind-table">
+        <thead><tr><th>Día</th><th class="num">Vouchers</th><th>Promotora en tienda</th><th>Horario</th></tr></thead>
+        <tbody>${d.lista.length ? d.lista.map(dayRow).join("") : '<tr><td colspan="4" class="empty">Sin días de activación aún en este mes</td></tr>'}</tbody>
+      </table></div>`;
+  }
+
+  // ---------- Ruta sugerida por promotora (según avance) ----------
+  function peakStart(hours) {
+    let best = 0, bh = 0;
+    for (let h = 7; h <= 20; h++) { const s = (hours[h] || 0) + (hours[h + 1] || 0) + (hours[h + 2] || 0); if (s > best) { best = s; bh = h; } }
+    return best ? bh : null;
+  }
+
+  function routePlan(m) {
+    const ref = m.isCurrent ? m.today : m.days[m.days.length - 1];
+    const isAct = (k) => m.cfgDias.includes(dowOf(k));
+    const range = (a, b) => { const out = []; for (let k = a; k <= b; k = addDays(k, 1)) out.push(k); return out; };
+    const w14 = range(addDays(ref, -13), ref).filter(isAct);
+    const w7 = range(addDays(ref, -6), ref).filter(isAct);
+    const p7 = range(addDays(ref, -13), addDays(ref, -7)).filter(isAct);
+    const cnt = (t, ks) => { const set = new Set(ks); return m.R.filter((r) => r.tienda === t && set.has(r._d)).length; };
+
+    const stats = TIENDAS.map((x) => {
+      const t = x.tienda;
+      const n14 = cnt(t, w14), n7 = cnt(t, w7), np7 = cnt(t, p7);
+      const days14 = new Set(m.R.filter((r) => r.tienda === t && w14.includes(r._d)).map((r) => r._d));
+      const last = m.R.filter((r) => r.tienda === t && r._d <= ref).reduce((a, r) => (!a || r._d > a ? r._d : a), null);
+      const since = last ? range(addDays(last, 1), ref).filter(isAct).length : null;
+      return { tienda: t, promos: x.promotoras || [], n14, n7, np7, avg14: w14.length ? n14 / w14.length : 0, gap14: w14.filter((k) => !days14.has(k)).length, last, since };
+    });
+    const act = stats.filter((s) => s.n14 > 0).map((s) => s.avg14).sort((a, b) => a - b);
+    const bench = act.length ? act[Math.floor(act.length / 2)] : 1;
+
+    stats.forEach((s) => {
+      const perf = Math.max(0, Math.min(1, 1 - s.avg14 / (bench || 1)));
+      const gap = w14.length ? s.gap14 / w14.length : 0;
+      const trend = s.np7 > 0 ? Math.max(0, Math.min(1, (s.np7 - s.n7) / s.np7)) : 0;
+      const rec = s.since === null ? 1 : Math.min(1, s.since / 5);
+      s.score = Math.round(perf * 45 + gap * 30 + trend * 15 + rec * 10);
+      s.prio = s.score >= 60 ? "Alta" : s.score >= 35 ? "Media" : "Baja";
+      const why = [];
+      if (s.last === null) why.push("sin vouchers registrados");
+      else if (s.since >= 2) why.push(`${s.since} días de activación sin registro`);
+      if (s.n14 > 0) why.push(`${fmt1(s.avg14)}/día vs ${fmt1(bench)} de la tienda típica`);
+      if (s.gap14 && s.last !== null) why.push(`${s.gap14} de ${w14.length} días en cero (14 días)`);
+      if (s.np7 > 0 && s.n7 < s.np7) why.push(`cayó ${pct((s.np7 - s.n7) / s.np7)} vs semana previa`);
+      if (s.np7 > 0 && s.n7 > s.np7) why.push(`subió ${pct((s.n7 - s.np7) / s.np7)} vs semana previa`);
+      s.why = why;
+    });
+
+    // Semana siguiente (lunes a domingo) con los días de activación
+    let mon = addDays(ref, 1);
+    while (dowOf(mon) !== 1) mon = addDays(mon, 1);
+    const week = range(mon, addDays(mon, 6)).filter(isAct);
+    // Días con más tráfico histórico primero (promedio del equipo por día de la semana)
+    const dowAvg = (k) => { const d = dowOf(k); return m.dowCnt[d] ? m.dowTot[d] / m.dowCnt[d] : 0; };
+    const byTraffic = week.slice().sort((a, b) => dowAvg(b) - dowAvg(a) || a.localeCompare(b));
+
+    const promoNames = [...new Set(TIENDAS.flatMap((t) => t.promotoras || []))];
+    const plans = promoNames.map((p) => {
+      const st = stats.filter((s) => s.promos.includes(p)).sort((a, b) => b.score - a.score);
+      const n = week.length, k = st.length;
+      const alloc = st.map(() => 0);
+      if (k === 1) alloc[0] = n;
+      else if (k > 1 && n) {
+        const base = n >= k ? 1 : 0;
+        if (base) alloc.fill(1);
+        let rest = n - base * k;
+        const w = st.map((s) => 0.4 + s.score / 100);
+        const sw = w.reduce((a, b) => a + b, 0);
+        const exact = w.map((x) => (rest * x) / sw);
+        exact.forEach((x, i) => (alloc[i] += Math.floor(x)));
+        rest -= exact.reduce((a, x) => a + Math.floor(x), 0);
+        exact.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).slice(0, rest).forEach(([, i]) => alloc[i]++);
+      }
+      // Asigna los días de mayor tráfico a las tiendas con mayor necesidad, alternando para no repetir seguido
+      const queue = [];
+      const left = alloc.slice();
+      while (queue.length < n && left.some((x) => x > 0)) st.forEach((s, i) => { if (left[i] > 0) { queue.push(i); left[i]--; } });
+      const dayMap = {};
+      byTraffic.forEach((k, j) => { if (queue[j] !== undefined) dayMap[k] = st[queue[j]].tienda; });
+      const agenda = week.map((k) => ({ k, tienda: dayMap[k] || null, prio: (st.find((s) => s.tienda === dayMap[k]) || {}).prio }));
+      const total14 = st.reduce((a, s) => a + s.n14, 0);
+      return { promotora: p, tiendas: st, alloc, agenda, total14 };
+    }).sort((a, b) => Math.max(...b.tiendas.map((s) => s.score), 0) - Math.max(...a.tiendas.map((s) => s.score), 0));
+
+    return { ref, mon, week, bench, w14: w14.length, plans, peak: peakStart(m.hours) };
+  }
+
+  const PRIO_CLS = { Alta: "bad", Media: "warn", Baja: "ok" };
+  function routeView(m) {
+    const r = routePlan(m);
+    if (!r.plans.length) return '<div class="empty" style="padding:18px">Asigna tiendas a las promotoras en config.js para armar la ruta.</div>';
+    const wk = r.week.length ? `${dLabel(r.week[0])} – ${dLabel(r.week[r.week.length - 1])}` : "—";
+    return `
+      <p class="insight" style="margin:0 0 12px">Ruta para la semana <b>${esc(wk)}</b>, según el avance de los últimos 14 días (al ${esc(dLabel(r.ref))}).
+        Cada tienda recibe un <b>puntaje de necesidad</b> (0–100): rendimiento por día frente a la tienda típica (${fmt1(r.bench)} vouchers/día), días en cero, caída vs la semana previa y días desde el último registro.
+        Las tiendas con más necesidad reciben más días y los días de mayor tráfico${r.peak !== null ? `; refuerza la franja <b>${r.peak}:00 – ${r.peak + 3}:00</b>` : ""}. Es una propuesta: valídala con la agencia.</p>
+      <div class="route-grid">${r.plans.map((p) => `
+        <div class="route-card">
+          <div class="route-head"><b>${esc(p.promotora)}</b><span class="muted small">${p.total14} vouchers en 14 días · ${p.tiendas.length} tienda${p.tiendas.length === 1 ? "" : "s"}</span></div>
+          ${p.tiendas.map((s, i) => `
+            <div class="route-store">
+              <div class="rs-top"><span class="pill ${PRIO_CLS[s.prio]}">${s.prio}</span><b>${esc(short(s.tienda))}</b><span class="rs-days">${p.alloc[i]} día${p.alloc[i] === 1 ? "" : "s"}</span></div>
+              <div class="prog"><div class="${PRIO_CLS[s.prio]}" style="width:${s.score}%"></div></div>
+              <div class="small muted">Necesidad ${s.score}/100 · ${s.n14} vouchers en 14 días${s.why.length ? " · " + esc(s.why.join(" · ")) : ""}</div>
+            </div>`).join("")}
+          <div class="route-week">${p.agenda.map((a) => `<div class="rw-day${a.tienda ? " p-" + (PRIO_CLS[a.prio] || "ok") : ""}"><span>${esc(dLabel(a.k).replace(/ \w+$/, ""))}</span><b>${a.tienda ? esc(short(a.tienda)) : "—"}</b></div>`).join("")}</div>
+        </div>`).join("")}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" id="mRutaCsv">Exportar ruta (CSV)</button></div>`;
+  }
+
+  function exportRoute(m) {
+    const r = routePlan(m);
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const head = ["Promotora", "Fecha", "Día", "Tienda", "Prioridad", "Necesidad (0-100)", "Vouchers 14 días", "Motivo"];
+    const lines = [];
+    r.plans.forEach((p) => p.agenda.forEach((a) => {
+      const s = p.tiendas.find((x) => x.tienda === a.tienda) || {};
+      lines.push([p.promotora, a.k, DOW[dowOf(a.k)], a.tienda || "", s.prio || "", s.score ?? "", s.n14 ?? "", (s.why || []).join(" · ")].map(q).join(";"));
+    }));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + head.map(q).join(";") + "\n" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `ruta_promotoras_${r.week[0] || r.ref}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
   // ---------- Render ----------
@@ -325,10 +523,16 @@
       ${m.alerts.length ? `<div class="alerts">${m.alerts.map((a) => `<div class="alert-item ${a.lvl}"><b>${esc(a.t)}</b><span>${esc(a.d)}</span></div>`).join("")}</div>` : ""}
 
       <div class="card panel">
-        <div class="panel-head"><h3>Vouchers por día · ${esc(ymLabel(state.ym))}</h3>
-          <span class="muted">${m.best ? `Mejor día: <b>${esc(dLabel(m.best))}</b> con ${m.perDay[m.best]}` : ""}</span></div>
+        <div class="panel-head"><h3>${state.view === "ruta" ? "Ruta sugerida por promotora" : `Vouchers por día · ${esc(ymLabel(state.ym))}`}</h3>
+          <div class="seg" role="tablist" aria-label="Vista">
+            <button type="button" data-view="equipo" class="${state.view === "equipo" ? "on" : ""}">Equipo</button>
+            <button type="button" data-view="tienda" class="${state.view === "tienda" ? "on" : ""}">Por tienda</button>
+            <button type="button" data-view="ruta" class="${state.view === "ruta" ? "on" : ""}">Ruta sugerida</button>
+          </div></div>
+        ${state.view === "tienda" ? storeView(m) : state.view === "ruta" ? routeView(m) : `
+        ${m.best ? `<p class="muted small" style="margin:-4px 0 6px">Mejor día: <b>${esc(dLabel(m.best))}</b> con ${m.perDay[m.best]}</p>` : ""}
         ${dailyChart(m)}
-        <div class="legend"><span><i class="sw today"></i>Hoy</span><span><i class="sw sel"></i>Día seleccionado</span><span><i class="sw off"></i>Día sin activación</span>${m.metaDiariaEquipo ? '<span><i class="sw goal"></i>Meta diaria</span>' : ""}</div>
+        <div class="legend"><span><i class="sw today"></i>Hoy</span><span><i class="sw sel"></i>Día seleccionado</span><span><i class="sw off"></i>Día sin activación</span>${m.metaDiariaEquipo ? '<span><i class="sw goal"></i>Meta diaria</span>' : ""}</div>`}
       </div>
 
       <div class="kpis day-kpis">
@@ -453,6 +657,9 @@
     };
     $("mDia").onchange = (e) => { if (e.target.value) { state.day = e.target.value; state.ym = state.day.slice(0, 7); render(); } };
     el.querySelectorAll("[data-day]").forEach((r) => r.addEventListener("click", () => { state.day = r.dataset.day; render(); }));
+    el.querySelectorAll(".seg [data-view]").forEach((b) => (b.onclick = () => { state.view = b.dataset.view; try { sessionStorage.setItem("m_view", state.view); } catch {} render(); }));
+    if ($("mTienda")) $("mTienda").onchange = (e) => { state.tienda = e.target.value; try { sessionStorage.setItem("m_tienda", state.tienda); } catch {} render(); };
+    if ($("mRutaCsv")) $("mRutaCsv").onclick = () => exportRoute(m);
     $("mCfgBtn").onclick = () => { state.showCfg = !state.showCfg; $("mCfg").classList.toggle("hidden", !state.showCfg); };
     $("cSave").onclick = async () => {
       const meta = Math.max(0, parseInt($("cMeta").value || "0", 10) || 0);
